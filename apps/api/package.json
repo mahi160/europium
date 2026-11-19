@@ -1,0 +1,18 @@
+{
+  "name": "@office-service/api",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hono/node-server": "2.1.9",
+    "@office-service/shared": "workspace:*",
+    "better-auth": "1.7.25",
+    "better-sqlite3": "13.2.0",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.19",
+    "web-push": "^4.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
+  }
+}

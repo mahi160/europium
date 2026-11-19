@@ -1,0 +1,42 @@
+name: office-service
+
+services:
+  api:
+    image: ${APP_IMAGE:?Run scripts/install.sh first}
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      AUTH_SECRET: ${AUTH_SECRET:?Missing AUTH_SECRET}
+      SETUP_TOKEN: ${SETUP_TOKEN:?Missing SETUP_TOKEN}
+      APP_ORIGIN: https://${OFFICE_ADDRESS:?Missing OFFICE_ADDRESS}
+      DATABASE_PATH: /data/office.sqlite
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    volumes:
+      - app-data:/data
+
+  caddy:
+    image: ${WEB_IMAGE:?Run scripts/install.sh first}
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      OFFICE_ADDRESS: ${OFFICE_ADDRESS:?Missing OFFICE_ADDRESS}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:

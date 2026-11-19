@@ -1,0 +1,26 @@
+{
+  "name": "office-service",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev:api": "vp run api:dev",
+    "test": "vp test",
+    "lint": "vp lint",
+    "fmt": "vp fmt",
+    "typecheck": "vp run types"
+  },
+  "devDependencies": {
+    "@office-service/shared": "workspace:*",
+    "@playwright/test": "^1.65.1",
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite-plus": "1.7.0",
+    "zod": "^4.6.7"
+  }
+}
