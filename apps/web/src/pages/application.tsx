@@ -12,6 +12,8 @@ import { NativeSelect, NativeSelectOption } from '../components/ui/native-select
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import { IconCoffee } from '@tabler/icons-react';
 import { ErrorNotice, Field, Form, Password, text } from '../components/forms';
+import { OrderFocus } from '../components/order-focus';
+import { PwaSetup } from '../components/pwa';
 import { People } from './people';
 import { MenuManagement, Ordering } from './ordering';
 import { clearDraft } from '../draft';
@@ -94,6 +96,7 @@ export function Application() {
           <h1>{t(adminPage ? 'admin' : 'work')}</h1>
           <RealtimeStatus/>
         </div>}
+        {!adminPage && user.role !== 'admin' && <><PwaSetup user={user}/><OrderFocus user={user} work={user.role === 'staff'}/></>}
         {adminPage ? user.role === 'admin' ? <div className="grid items-start gap-8 md:grid-cols-2">
           <section className="grid min-w-0 gap-4" aria-label={t('users')}><h2>{t('users')}</h2><People current={user}/></section>
           <section className="grid min-w-0 gap-4" aria-label={t('menu')}><h2>{t('menu')}</h2><MenuManagement user={user}/></section>
