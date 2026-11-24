@@ -1,8 +1,34 @@
 # Implementation verification
 
-Tickets 01–07 have implementation code. Checked boxes in individual tickets distinguish implemented behavior from unfinished acceptance evidence. No registry publication, production migration, live deployment cutover or real-phone verification was performed.
+Production-readiness tickets 01–13 are implemented. No registry publication, production migration, live deployment cutover, or real-phone verification was performed.
 
-## Recorded checks
+## Production-readiness checks
+
+Verified at `b116ce0`:
+
+| Command | Outcome |
+| --- | --- |
+| `pnpm typecheck` | Passed. |
+| `pnpm test` | 96 passed across 16 files. |
+| `pnpm exec playwright test` | 22 passed. |
+| `pnpm exec playwright test --config playwright.ui.config.ts` | 20 passed. |
+| `pnpm --filter @office-service/web build` | Passed. Nonblocking bundle-size and plugin deprecation warnings remain. |
+| `pnpm exec playwright test --config playwright.pwa.config.ts` | 9 passed, including two-build activation, old precache cleanup, and protection for unsent drafts and open dialogs. |
+
+## Ticket 14: Real-device acceptance
+
+Run these steps on the office network with an Android phone using Chrome and an iPhone using Safari. Use test employee and staff accounts and two approved builds. Record the build IDs, device model, OS and browser versions, elapsed times, and failures below. Do not include credentials, push endpoints, or private keys.
+
+1. On each phone, trust the office root CA using [the deployment guide](deployment.md). Confirm the office HTTPS address opens without a certificate warning. Install from Chrome on Android, or use **Share → Add to Home Screen** on iPhone. Launch the installed app.
+2. Sign in as staff and enable notifications explicitly. Lock both screens, then place a test order from a separate employee session. Record the time until the initial push. Tap it and verify it opens the staff queue. Lock both screens again without accepting the order; verify the reminder arrives after about five minutes. Complete or reject the test order after recording the results.
+3. Leave the installed app open with no unsent draft or open dialog. Deploy the second approved build through the office upgrade process, then return the app to the foreground. Verify the new build loads without reinstalling. Repeat with a draft if another approved build is available: verify the update notice appears, the draft remains intact, and the app updates after sending or clearing it and tapping Reload.
+
+| Device / OS / browser | Builds | HTTPS and install | Locked push / tap | Five-minute reminder | Update without reinstall | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| Android / not recorded / Chrome | Not tested | Not tested | Not tested | Not tested | Not tested | Pending device run. |
+| iPhone / not recorded / Safari Home Screen | Not tested | Not tested | Not tested | Not tested | Not tested | Pending device run. |
+
+## Earlier recorded checks
 
 | Command | Outcome |
 | --- | --- |
