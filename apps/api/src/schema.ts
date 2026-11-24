@@ -19,6 +19,7 @@ export const user = sqliteTable('user', {
   floor: text('floor').notNull().default(''),
   desk: text('desk').notNull().default(''),
   mustChangePassword: integer('must_change_password', { mode: 'boolean' }).notNull().default(false),
+  deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
 });
 
 export const session = sqliteTable('session', {

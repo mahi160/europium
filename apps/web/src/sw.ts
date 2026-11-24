@@ -19,7 +19,7 @@ self.addEventListener('push', (event) => {
     const text = notificationText(payload);
     await self.registration.showNotification(text.title, {
       body: text.body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png',
-      lang: payload.language, tag: payload.target, data: { target: payload.target },
+      lang: payload.language, tag: payload.kind === 'claimed' ? `claimed:${payload.id}` : payload.target, data: { target: payload.target },
     });
   })());
 });

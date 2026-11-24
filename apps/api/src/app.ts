@@ -1,10 +1,10 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { hashPassword, verifyPassword } from 'better-auth/crypto';
 import { z } from 'zod';
 import {
-  changePasswordSchema, createUserSchema, loginSchema, resetPasswordSchema,
+  changePasswordSchema, createUserSchema, loginSchema, passwordSchema, pinSchema, resetPasswordSchema,
   setupSchema, updateProfileSchema, updateUserSchema, userIdSchema,
   type ApiErrorCode, type PublicUser,
 } from '@office-service/shared';
@@ -61,7 +61,7 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
   const { sqlite, db } = openDatabase(config.DATABASE_PATH);
   const auth = createAuth(db, config);
   const app = new Hono<AppEnv>();
-  const findUser = (id: string) => db.select().from(user).where(eq(user.id, id)).get();
+  const findUser = (id: string) => db.select().from(user).where(and(eq(user.id, id), isNull(user.deletedAt))).get();
   const credential = (id: string) => db.select().from(account)
     .where(and(eq(account.userId, id), eq(account.providerId, 'credential'))).get();
 
@@ -84,9 +84,19 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
     return actor;
   }
 
-  function limited(key: string, limit: number) {
+  // A separate server secret prevents a database-only attacker from enumerating all 10,000 PINs.
+  function encodedCredential(person: Pick<User, 'role' | 'username'>, value: string) {
+    return person.role === 'admin' ? value : createHmac('sha256', config.AUTH_SECRET)
+      .update(JSON.stringify(['pin', person.username, value])).digest('hex');
+  }
+
+  function credentialLimit(username: string) {
+    return 'credential:' + createHash('sha256').update(username).digest('hex');
+  }
+
+  function limited(key: string, limit: number, windowMs = 60000) {
     sqlite.transaction(() => {
-      const window = Math.floor(Date.now() / 60000);
+      const window = Math.floor(Date.now() / windowMs);
       const previous = db.select().from(rateLimit).where(eq(rateLimit.key, key)).get();
       if (previous?.window === window) {
         if (previous.count >= limit) throw new AppError('RATE_LIMITED', 429);
@@ -102,7 +112,7 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
   function protectLastAdmin(target: User, nextRole: User['role'], nextActive: boolean) {
     if (target.role !== 'admin' || target.banned || (nextRole === 'admin' && nextActive)) return;
     const admins = db.select({ id: user.id }).from(user)
-      .where(and(eq(user.role, 'admin'), eq(user.banned, false))).all();
+      .where(and(eq(user.role, 'admin'), eq(user.banned, false), isNull(user.deletedAt))).all();
     if (admins.length <= 1) throw new AppError('LAST_ACTIVE_ADMIN', 409);
   }
 
@@ -181,17 +191,23 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
 
   app.post('/api/auth/login', async (c) => {
     const data = input(c, loginSchema);
+    const limitKey = credentialLimit(data.username);
+    limited(limitKey, 5, 15 * 60000);
     const before = db.select().from(user).where(eq(user.username, data.username)).get();
     const passwordBefore = before ? credential(before.id)?.password : undefined;
-    const response = await auth.api.signInUsername({ body: data, headers: c.req.raw.headers, asResponse: true });
+    const response = await auth.api.signInUsername({
+      body: { ...data, password: before ? encodedCredential(before, data.password) : data.password },
+      headers: c.req.raw.headers, asResponse: true,
+    });
     if (!response.ok) throw new AppError('INVALID_CREDENTIALS', 401);
     const signedIn = z.object({ token: z.string(), user: z.object({ id: z.string() }) }).parse(await response.json());
     const current = sqlite.transaction(() => {
       const value = findUser(signedIn.user.id);
-      if (!value || value.banned || !passwordBefore || credential(value.id)?.password !== passwordBefore) {
+      if (!value || value.banned || value.role !== before?.role || !passwordBefore || credential(value.id)?.password !== passwordBefore) {
         db.delete(session).where(eq(session.token, signedIn.token)).run();
         return null;
       }
+      db.delete(rateLimit).where(eq(rateLimit.key, limitKey)).run();
       return value;
     }).immediate();
     if (!current) throw new AppError('INVALID_CREDENTIALS', 401);
@@ -225,18 +241,28 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
 
   app.post('/api/auth/change-password', async (c) => {
     const actor = await actorFor(c, false, true);
-    const data = input(c, changePasswordSchema);
+    const parsed = changePasswordSchema.safeParse(c.get('body'));
+    if (!parsed.success) {
+      const unchanged = parsed.error.issues.some((issue) => issue.code === 'custom');
+      throw new AppError(unchanged ? 'CREDENTIAL_UNCHANGED' : 'VALIDATION_ERROR');
+    }
+    const data = parsed.data;
+    const person = freshActor(actor, false, true);
+    if (!(person.role === 'admin' ? passwordSchema : pinSchema).safeParse(data.newPassword).success) throw new AppError('VALIDATION_ERROR');
+    const limitKey = credentialLimit(person.username);
+    limited(limitKey, 5, 15 * 60000);
     const previous = credential(actor.userId);
-    if (!previous?.password || !await verifyPassword({ hash: previous.password, password: data.currentPassword })) {
+    if (!previous?.password || !await verifyPassword({ hash: previous.password, password: encodedCredential(person, data.currentPassword) })) {
       throw new AppError('INVALID_CURRENT_PASSWORD');
     }
-    const password = await hashPassword(data.newPassword);
+    const password = await hashPassword(encodedCredential(person, data.newPassword));
     sqlite.transaction(() => {
       freshActor(actor, false, true);
       if (credential(actor.userId)?.password !== previous.password) throw new AppError('UNAUTHORIZED', 401);
       const now = new Date();
       db.update(account).set({ password, updatedAt: now }).where(eq(account.id, previous.id)).run();
       db.update(user).set({ mustChangePassword: false, updatedAt: now }).where(eq(user.id, actor.userId)).run();
+      db.delete(rateLimit).where(eq(rateLimit.key, limitKey)).run();
       const sessions = db.select().from(session).where(eq(session.userId, actor.userId)).all();
       for (const value of sessions) {
         if (value.token !== actor.token) db.delete(session).where(eq(session.id, value.id)).run();
@@ -262,7 +288,7 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
 
   app.get('/api/users', async (c) => {
     await actorFor(c, true);
-    return c.json({ users: db.select().from(user).all().map(publicUser) });
+    return c.json({ users: db.select().from(user).where(isNull(user.deletedAt)).all().map(publicUser) });
   });
 
   app.post('/api/users', async (c) => {
@@ -273,7 +299,7 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
       const result = await auth.api.createUser({
         headers: c.req.raw.headers,
         body: {
-          email: `${randomUUID()}@office.invalid`, password: data.password, name: data.name, role: data.role,
+          email: `${randomUUID()}@office.invalid`, password: encodedCredential(data, data.password), name: data.name, role: data.role,
           data: { username: data.username, displayUsername: data.username, language: data.language, floor: data.floor, desk: data.desk, mustChangePassword: true },
         },
       });
@@ -298,15 +324,37 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
       if (!target) throw new AppError('USER_NOT_FOUND', 404);
       protectLastAdmin(target, data.role ?? target.role, data.isActive ?? !target.banned);
       const { isActive, ...fields } = data;
+      const credentialChanged = data.role !== undefined && (data.role === 'admin') !== (target.role === 'admin');
       const current = db.update(user).set({
         ...fields, ...(isActive === undefined ? {} : { banned: !isActive, banReason: null, banExpires: null }),
+        ...(credentialChanged ? { mustChangePassword: true } : {}),
         updatedAt: new Date(),
       }).where(eq(user.id, target.id)).returning().get();
-      if (isActive === false) db.delete(session).where(eq(session.userId, target.id)).run();
+      if (credentialChanged) db.update(account).set({ password: null, updatedAt: new Date() })
+        .where(and(eq(account.userId, target.id), eq(account.providerId, 'credential'))).run();
+      if (isActive === false || credentialChanged) db.delete(session).where(eq(session.userId, target.id)).run();
       return { current, changed: JSON.stringify(publicUser(target)) !== JSON.stringify(publicUser(current)) };
     }).immediate();
     if (updated.changed) events.publish({ kind: 'user', id: id.data });
     return c.json({ user: publicUser(updated.current) });
+  });
+
+  app.delete('/api/users/:id', async (c) => {
+    const actor = await actorFor(c, true);
+    const id = userIdSchema.safeParse(c.req.param('id'));
+    if (!id.success) throw new AppError('VALIDATION_ERROR');
+    sqlite.transaction(() => {
+      freshActor(actor, true);
+      const target = findUser(id.data);
+      if (!target) throw new AppError('USER_NOT_FOUND', 404);
+      protectLastAdmin(target, target.role, false);
+      const now = new Date();
+      db.update(user).set({ deletedAt: now, banned: true, banExpires: null, updatedAt: now })
+        .where(eq(user.id, target.id)).run();
+      db.delete(session).where(eq(session.userId, target.id)).run();
+    }).immediate();
+    events.publish({ kind: 'user', id: id.data });
+    return c.json({ success: true });
   });
 
   app.post('/api/users/:id/reset-password', async (c) => {
@@ -314,16 +362,22 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
     const id = userIdSchema.safeParse(c.req.param('id'));
     if (!id.success) throw new AppError('VALIDATION_ERROR');
     const data = input(c, resetPasswordSchema);
-    const password = await hashPassword(data.newPassword);
+    const person = findUser(id.data);
+    if (!person) throw new AppError('USER_NOT_FOUND', 404);
+    if (!(person.role === 'admin' ? passwordSchema : pinSchema).safeParse(data.newPassword).success) throw new AppError('VALIDATION_ERROR');
+    const password = await hashPassword(encodedCredential(person, data.newPassword));
     sqlite.transaction(() => {
       freshActor(actor, true);
-      if (!findUser(id.data)) throw new AppError('USER_NOT_FOUND', 404);
+      const current = findUser(id.data);
+      if (!current) throw new AppError('USER_NOT_FOUND', 404);
+      if (current.role !== person.role) throw new AppError('VALIDATION_ERROR');
       const target = credential(id.data);
       if (!target) throw new Error('Credential account missing');
       const now = new Date();
       db.update(account).set({ password, updatedAt: now }).where(eq(account.id, target.id)).run();
       db.update(user).set({ mustChangePassword: true, updatedAt: now }).where(eq(user.id, id.data)).run();
       db.delete(session).where(eq(session.userId, id.data)).run();
+      db.delete(rateLimit).where(eq(rateLimit.key, credentialLimit(person.username))).run();
     }).immediate();
     events.publish({ kind: 'user', id: id.data });
     return c.json({ success: true });

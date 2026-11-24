@@ -11,7 +11,8 @@ import type { PushTransport } from './push';
 
 const origin = 'http://localhost:5173';
 const password = 'push-initial-password-123';
-const personalPassword = 'push-personal-password-456';
+const pin = '1234';
+const personalPin = '5678';
 const setupToken = 'push-setup-token-at-least-32-characters';
 const personResponse = z.object({ user: publicUserSchema });
 const cleanup: Array<() => void> = [];
@@ -45,11 +46,11 @@ async function fixture() {
   expect((await request(backend, '/setup', 'POST', { name: 'Admin', username: 'admin', password, setupToken, language: 'en', floor: '', desk: '' })).status).toBe(201);
   const admin = await login('admin');
   async function person(role: 'staff' | 'employee', username: string, language: 'bn' | 'en') {
-    const response = await request(backend, '/users', 'POST', { name: username, username, role, language, password, floor: '3', desk: 'D12' }, admin);
+    const response = await request(backend, '/users', 'POST', { name: username, username, role, language, password: pin, floor: '3', desk: 'D12' }, admin);
     expect(response.status).toBe(201);
     const value = personResponse.parse(await response.json()).user;
-    const cookie = await login(username);
-    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: password, newPassword: personalPassword }, cookie)).status).toBe(200);
+    const cookie = await login(username, pin);
+    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, cookie)).status).toBe(200);
     return { ...value, cookie };
   }
   const employee = await person('employee', 'employee', 'bn');
@@ -108,8 +109,11 @@ test('initial and five-minute notifications reach active subscribed staff only, 
   expect(f.sent.slice(2).every((value) => value.payload.kind === 'reminder')).toBe(true);
   await f.command(pending.id, 'accept', f.staff.cookie);
   f.advance(300000); await f.backend.push.tick();
-  expect(f.sent.filter((value) => value.payload.target.startsWith('/work'))).toHaveLength(4);
-  expect(f.sent.at(-1)?.payload).toMatchObject({ kind: 'accept', language: 'bn' });
+  expect(f.sent.filter((value) => value.payload.target.startsWith('/work?'))).toHaveLength(4);
+  expect(f.sent.slice(4).map((value) => value.payload)).toEqual([
+    { kind: 'claimed', language: 'bn', target: '/work', reason: null, id: expect.any(Number), requestedBy: 'employee', acceptedBy: 'staff_one' },
+    { kind: 'accept', language: 'bn', target: '/orders?order=' + pending.id, reason: null },
+  ]);
 });
 
 test('pending scheduling and the transition outbox survive a commit then restart, without missed reminder replay', async () => {
@@ -133,7 +137,7 @@ test('each send rechecks pending state, including a claim while another external
   expect(f.sent).toHaveLength(1);
   expect(f.backend.sqlite.prepare('SELECT * FROM push_schedule').all()).toEqual([]);
   f.boundary(async () => {}); f.advance(300000); await f.backend.push.tick();
-  expect(f.sent).toHaveLength(1);
+  expect(f.sent.slice(1).map((value) => value.payload.kind)).toEqual(['claimed']);
 });
 
 test('reject and owner cancellation stop even the initial alert; requeue resets the generation during an in-flight send', async () => {
@@ -202,7 +206,7 @@ test('404 and 410 subscriptions are pruned; transient errors retain the device a
 
 test('logout cascades devices, account switching rebinds endpoints, and the previous session cannot delete the new binding', async () => {
   const f = await fixture(); const subscription = await f.subscribe(f.staff.cookie, 'device');
-  const otherCookie = await f.login('staff_one', personalPassword);
+  const otherCookie = await f.login('staff_one', personalPin);
   await f.subscribe(otherCookie, 'device');
   expect((await request(f.backend, '/push/subscription', 'DELETE', { endpoint: subscription.endpoint }, f.staff.cookie)).status).toBe(200);
   expect(f.backend.sqlite.prepare('SELECT * FROM push_subscription').all()).toHaveLength(1);
@@ -222,7 +226,7 @@ test('deactivation, reset and expiry stop device sends, including revocation bet
     expect((await request(f.backend, '/users/' + f.second.id, 'PATCH', { isActive: false }, f.admin)).status).toBe(200);
   });
   await f.backend.push.tick(); expect(f.sent).toHaveLength(1);
-  expect((await request(f.backend, '/users/' + f.staff.id + '/reset-password', 'POST', { newPassword: password }, f.admin)).status).toBe(200);
+  expect((await request(f.backend, '/users/' + f.staff.id + '/reset-password', 'POST', { newPassword: pin }, f.admin)).status).toBe(200);
   expect(f.backend.sqlite.prepare('SELECT * FROM push_subscription').all()).toEqual([]);
   f.advance(300000); await f.backend.push.tick(); expect(f.sent).toHaveLength(1);
   await f.subscribe(f.employee.cookie, 'owner');

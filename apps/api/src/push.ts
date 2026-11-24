@@ -10,8 +10,9 @@ import type { openDatabase } from './database';
 type Subscription = z.infer<typeof pushSubscriptionSchema>;
 export type PushTransport = (subscription: Subscription, payload: NotificationPayload) => Promise<unknown>;
 type Schedule = { order_id: string; history_id: number; initial: number };
-type Event = { id: number; order_id: string; action: NotificationPayload['kind']; to_status: string; reason: string | null; user_id: string };
-type Recipient = { endpoint: string; p256dh: string; auth: string; language: 'bn' | 'en' };
+type Event = { id: number; order_id: string; action: Exclude<NotificationPayload['kind'], 'claimed'>; to_status: string; reason: string | null; user_id: string };
+type Recipient = { endpoint: string; p256dh: string; auth: string; language: 'bn' | 'en'; user_id: string };
+type Detail = { actor_id: string; actor_name: string; requested_name: string };
 const intervalMs = 5 * 60 * 1000;
 
 function vapid(config: AppConfig) {
@@ -37,14 +38,14 @@ export function createPush({ sqlite }: ReturnType<typeof openDatabase>, config: 
   let running: Promise<void> | null = null;
   let stopped = false;
   const recipients = sqlite.prepare<[number, string, string], Recipient>(`
-    SELECT p.endpoint, p.p256dh, p.auth, u.language FROM push_subscription p
+    SELECT p.endpoint, p.p256dh, p.auth, u.language, u.id AS user_id FROM push_subscription p
     JOIN user u ON u.id = p.user_id JOIN session s ON s.id = p.session_id AND s.user_id = u.id
     WHERE u.banned = 0 AND u.must_change_password = 0 AND s.expires_at > ?
       AND ((? = 'staff' AND u.role = 'staff') OR u.id = ?)
     ORDER BY p.endpoint
   `);
   const validRecipient = sqlite.prepare<[string, number, string, string], Recipient>(`
-    SELECT p.endpoint, p.p256dh, p.auth, u.language FROM push_subscription p
+    SELECT p.endpoint, p.p256dh, p.auth, u.language, u.id AS user_id FROM push_subscription p
     JOIN user u ON u.id = p.user_id JOIN session s ON s.id = p.session_id AND s.user_id = u.id
     WHERE p.endpoint = ? AND u.banned = 0 AND u.must_change_password = 0 AND s.expires_at > ?
       AND ((? = 'staff' AND u.role = 'staff') OR u.id = ?)
@@ -53,16 +54,20 @@ export function createPush({ sqlite }: ReturnType<typeof openDatabase>, config: 
     SELECT id FROM orders WHERE id = ? AND status = ?
       AND (SELECT max(id) FROM order_history WHERE order_id = orders.id) = ?
   `);
-  async function deliver(event: Event, staff: boolean, kind: NotificationPayload['kind']) {
+  async function deliver(event: Event, staff: boolean, kind: Exclude<NotificationPayload['kind'], 'claimed'>, detail?: Detail) {
     const scope = staff ? 'staff' : 'employee';
     const owner = staff ? '' : event.user_id;
     for (const candidate of recipients.all(clock(), scope, owner)) {
       if (stopped) return;
       const recipient = validRecipient.get(candidate.endpoint, clock(), scope, owner);
       if (!recipient || recipient.p256dh !== candidate.p256dh || recipient.auth !== candidate.auth) continue;
-      if (staff ? !latest.get(event.order_id, 'PENDING', event.id)
+      if (detail && (recipient.user_id === detail.actor_id || recipient.user_id === event.user_id)) continue;
+      if (staff ? !latest.get(event.order_id, detail ? 'ACCEPTED' : 'PENDING', event.id)
         : !sqlite.prepare('SELECT id FROM orders WHERE id = ? AND user_id = ?').get(event.order_id, event.user_id)) return;
-      const payload: NotificationPayload = {
+      const payload: NotificationPayload = detail ? {
+        language: recipient.language, kind: 'claimed', target: '/work', reason: null,
+        id: event.id, requestedBy: detail.requested_name, acceptedBy: detail.actor_name,
+      } : {
         language: recipient.language, kind, target: `/${staff ? 'work' : 'orders'}?order=${event.order_id}`,
         reason: staff ? null : event.reason,
       };
@@ -81,6 +86,10 @@ export function createPush({ sqlite }: ReturnType<typeof openDatabase>, config: 
     SELECT h.id, h.order_id, h.action, h.to_status, h.reason, o.user_id
     FROM order_history h JOIN orders o ON o.id = h.order_id WHERE h.id = ?
   `);
+  const detailById = sqlite.prepare<[number], Detail>(`
+    SELECT h.actor_id, h.actor_name, u.name AS requested_name
+    FROM order_history h JOIN orders o ON o.id = h.order_id JOIN user u ON u.id = o.user_id WHERE h.id = ?
+  `);
   async function flush() {
     if (!publicKey || stopped) return;
     const events = sqlite.prepare<[], { history_id: number }>('SELECT history_id FROM push_event ORDER BY history_id').all();
@@ -88,7 +97,10 @@ export function createPush({ sqlite }: ReturnType<typeof openDatabase>, config: 
       if (stopped) return;
       if (!sqlite.prepare('DELETE FROM push_event WHERE history_id = ?').run(value.history_id).changes) continue;
       const event = eventById.get(value.history_id);
-      if (event) await deliver(event, false, event.action);
+      if (!event) continue;
+      const detail = event.action === 'accept' ? detailById.get(event.id) : undefined;
+      if (detail) await deliver(event, true, 'accept', detail);
+      await deliver(event, false, event.action);
     }
     if (stopped) return;
     const now = clock();

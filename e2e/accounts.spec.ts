@@ -8,6 +8,7 @@ test('setup, login, administration and localized mobile profile', async ({ page 
   await page.getByLabel('Password', { exact: false }).fill('browser-admin-password-123');
   await page.getByRole('button', { name: 'Set up Office Service', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  await page.getByLabel('Sign in as').selectOption('admin');
   await page.getByLabel('Username', { exact: false }).fill('office_admin');
   await page.getByLabel('Password', { exact: false }).fill('browser-admin-password-123');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -16,7 +17,7 @@ test('setup, login, administration and localized mobile profile', async ({ page 
   await page.getByRole('button', { name: 'Add person', exact: true }).click();
   await page.getByLabel('Full name').fill('রাহিম');
   await page.getByLabel('Username', { exact: false }).fill('rahim');
-  await page.getByLabel('Password', { exact: false }).fill('employee-temporary-123');
+  await page.getByRole('textbox', { name: /^PIN/ }).fill('2468');
   await page.getByLabel('Floor', { exact: false }).fill('৩');
   await page.getByLabel('Desk', { exact: false }).fill('D12');
   await page.getByRole('button', { name: 'Add person', exact: true }).last().click();
@@ -32,12 +33,12 @@ test('setup, login, administration and localized mobile profile', async ({ page 
   await page.getByRole('button', { name: 'বের হন', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'প্রবেশ করুন', exact: true })).toBeVisible();
   await page.getByLabel('ব্যবহারকারীর নাম', { exact: false }).fill('rahim');
-  await page.getByLabel('পাসওয়ার্ড', { exact: false }).fill('employee-temporary-123');
+  await page.getByRole('textbox', { name: /^পিন/ }).fill('2468');
   await page.getByRole('button', { name: 'প্রবেশ করুন', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'নিজের পাসওয়ার্ড দিন' })).toBeVisible();
-  await page.getByLabel('বর্তমান পাসওয়ার্ড', { exact: false }).fill('employee-temporary-123');
-  await page.getByLabel('নতুন পাসওয়ার্ড', { exact: false }).fill('employee-personal-456');
-  await page.getByRole('button', { name: 'পাসওয়ার্ড বদলান', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'নিজের পিন দিন' })).toBeVisible();
+  await page.getByLabel('বর্তমান পিন', { exact: false }).fill('2468');
+  await page.getByLabel('নতুন পিন', { exact: false }).fill('1357');
+  await page.getByRole('button', { name: 'পিন বদলান', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'নতুন অর্ডার', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'ব্যবহারকারী', exact: true })).toHaveCount(0);
 });

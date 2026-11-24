@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { PublicUser } from '@office-service/shared';
 import { api, sessionResponse } from './api';
 import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
 
 type Status = 'connecting' | 'disconnected' | 'offline' | 'refreshing' | 'current' | 'suspended';
 const RealtimeContext = createContext({ status: 'connecting' as Status, retry: () => {} });
@@ -145,8 +146,8 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
 export function RealtimeStatus() {
   const { t } = useTranslation();
   const { status, retry } = useContext(RealtimeContext);
-  return <div className={status === 'current' ? 'live' : 'notice live-off'} role="status" data-realtime={status}>
-    {t('realtime.' + status)}{status !== 'current' && <Button variant="ghost" onClick={retry}>{t('retry')}</Button>}
+  return <div className="flex flex-wrap items-center gap-2" role="status" data-realtime={status}>
+    <Badge variant="outline">{t('realtime.' + status)}</Badge>{status !== 'current' && <Button variant="ghost" onClick={retry}>{t('retry')}</Button>}
   </div>;
 }
 

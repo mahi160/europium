@@ -15,7 +15,8 @@ import { menuItem, orderItem, orders, session } from './schema';
 
 const origin = 'http://localhost:5173';
 const password = 'ordering-initial-password-123';
-const personalPassword = 'ordering-personal-password-456';
+const pin = '1234';
+const personalPin = '5678';
 const setupToken = 'ordering-setup-token-at-least-32-characters';
 const profile = { name: 'অর্ডারকারী', floor: '৩', desk: 'D12', language: 'en' } as const;
 const menuData = { name: 'দুধ চা', category: 'tea', unit: 'কাপ', available: true, archived: false } as const;
@@ -54,11 +55,11 @@ async function fixture() {
   return { backend, config, admin, item, payload };
 }
 async function person(backend: ReturnType<typeof createApp>, admin: string, role: 'employee' | 'staff' | 'admin', username: string = role) {
-  const response = await request(backend, '/users', 'POST', { ...profile, username, password, role }, admin);
+  const response = await request(backend, '/users', 'POST', { ...profile, username, password: pin, role }, admin);
   expect(response.status).toBe(201);
   const user = userResponse.parse(await response.json()).user;
-  const cookie = await login(backend, username);
-  expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: password, newPassword: personalPassword }, cookie)).status).toBe(200);
+  const cookie = await login(backend, username, pin);
+  expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, cookie)).status).toBe(200);
   return { user, cookie };
 }
 async function place(backend: ReturnType<typeof createApp>, cookie: string, payload: unknown) {
@@ -246,9 +247,9 @@ test('active orders remain visible across days; terminal orders use updated day 
 
 test('temporary passwords, revocation and deactivation prevent ordering or menu writes', async () => {
   const { backend, admin, item, payload } = await fixture();
-  const response = await request(backend, '/users', 'POST', { ...profile, username: 'temporary', role: 'employee', password }, admin);
+  const response = await request(backend, '/users', 'POST', { ...profile, username: 'temporary', role: 'employee', password: pin }, admin);
   const target = userResponse.parse(await response.json()).user;
-  const temporary = await login(backend, 'temporary');
+  const temporary = await login(backend, 'temporary', pin);
   await failure(await request(backend, '/orders', 'POST', payload(), temporary), 403, 'PASSWORD_CHANGE_REQUIRED');
   await failure(await request(backend, '/menu', 'GET', undefined, temporary), 403, 'PASSWORD_CHANGE_REQUIRED');
   await request(backend, '/users/' + target.id, 'PATCH', { isActive: false }, admin);

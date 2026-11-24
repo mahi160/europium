@@ -9,7 +9,8 @@ import { createApp } from './app';
 
 const origin = 'http://localhost:5173';
 const password = 'recovery-initial-password-123';
-const personalPassword = 'recovery-personal-password-456';
+const pin = '1234';
+const personalPin = '5678';
 const disposers: Array<() => void | Promise<void>> = [];
 afterEach(async () => { for (const dispose of disposers.splice(0).reverse()) await dispose(); });
 
@@ -27,17 +28,17 @@ async function fixture() {
   });
   const profile = { name: 'Recovery person', language: 'en', floor: '3', desk: 'D12' };
   expect((await request('/setup', 'POST', { ...profile, username: 'admin', password, setupToken: 'recovery-setup-token-at-least-32-characters' })).status).toBe(201);
-  const login = async (username: string) => {
-    const response = await request('/auth/login', 'POST', { username, password });
+  const login = async (username: string, secret = password) => {
+    const response = await request('/auth/login', 'POST', { username, password: secret });
     expect(response.status).toBe(200);
     return response.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
   };
   const admin = await login('admin');
-  const created = await request('/users', 'POST', { ...profile, username: 'employee', role: 'employee', password }, admin);
+  const created = await request('/users', 'POST', { ...profile, username: 'employee', role: 'employee', password: pin }, admin);
   expect(created.status).toBe(201);
   const employee = z.object({ user: publicUserSchema }).parse(await created.json()).user;
-  const cookie = await login('employee');
-  expect((await request('/auth/change-password', 'POST', { currentPassword: password, newPassword: personalPassword }, cookie)).status).toBe(200);
+  const cookie = await login('employee', pin);
+  expect((await request('/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, cookie)).status).toBe(200);
   const menu = await request('/menu', 'POST', { name: 'Recovery tea', category: 'tea', unit: 'কাপ', available: true, archived: false }, admin);
   expect(menu.status).toBe(201);
   const item = menuItemResponseSchema.parse(await menu.json()).item;
@@ -103,7 +104,7 @@ for (const action of ['reset-password', 'deactivate', 'logout'] as const) {
     const f = await fixture();
     const connections = await Promise.all([f.stream(), f.stream()]);
     const response = action === 'logout' ? await f.request('/auth/logout', 'POST', {}, f.cookie)
-      : action === 'reset-password' ? await f.request('/users/' + f.employee.id + '/reset-password', 'POST', { newPassword: password }, f.admin)
+      : action === 'reset-password' ? await f.request('/users/' + f.employee.id + '/reset-password', 'POST', { newPassword: pin }, f.admin)
       : await f.request('/users/' + f.employee.id, 'PATCH', { isActive: false }, f.admin);
     expect(response.status).toBe(200);
     for (const connection of connections) {

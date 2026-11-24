@@ -5,7 +5,7 @@ import { afterEach, describe, expect, test } from 'vite-plus/test';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
-  apiErrorSchema, publicUserSchema, type CreateUserInput, type PublicUser,
+  apiErrorSchema, menuResponseSchema, orderResponseSchema, ordersResponseSchema, publicUserSchema, type CreateUserInput, type PublicUser,
 } from '@office-service/shared';
 import { createApp } from './app';
 import { session, user } from './schema';
@@ -15,7 +15,9 @@ const token = 'operator-bootstrap-token-32-characters-long';
 const password = 'initial-password-123';
 const newPassword = 'replacement-password-456';
 const profile = { name: 'প্রশাসক', language: 'bn', floor: '৩', desk: 'A-12' } as const;
-const createdUser = { ...profile, name: 'Employee', username: 'employee', password, role: 'employee' } as const;
+const pin = '1234';
+const newPin = '5678';
+const createdUser = { ...profile, name: 'Employee', username: 'employee', password: pin, role: 'employee' } as const;
 const userResponseSchema = z.object({ user: publicUserSchema });
 const sessionResponseSchema = z.object({ user: publicUserSchema.nullable() });
 const resources: Array<() => void> = [];
@@ -167,19 +169,19 @@ describe('user administration and first-password gate', () => {
     const admin = await login(backend);
     const employee = await createUser(backend, admin.cookie);
     expect(employee.mustChangePassword).toBe(true);
-    const first = await login(backend, 'employee');
-    const other = await login(backend, 'employee');
+    const first = await login(backend, 'employee', pin);
+    const other = await login(backend, 'employee', pin);
     for (const [path, method, body] of [
       ['/api/users', 'GET', undefined],
       ['/api/users', 'POST', createdUser],
       ['/api/me', 'PATCH', { language: 'en' }],
       ['/api/users/' + employee.id, 'PATCH', { role: 'admin' }],
-      ['/api/users/' + employee.id + '/reset-password', 'POST', { newPassword }],
+      ['/api/users/' + employee.id + '/reset-password', 'POST', { newPassword: newPin }],
     ] as const) {
       await errorCode(await request(backend, path, method, body, first.cookie), 403, 'PASSWORD_CHANGE_REQUIRED');
     }
-    await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: 'wrong', newPassword }, first.cookie), 400, 'INVALID_CURRENT_PASSWORD');
-    const changed = await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, first.cookie);
+    await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: '9999', newPassword: newPin }, first.cookie), 400, 'INVALID_CURRENT_PASSWORD');
+    const changed = await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, first.cookie);
     expect(changed.status).toBe(200);
     expect(userResponseSchema.parse(await changed.json()).user.mustChangePassword).toBe(false);
     expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, other.cookie)).json()).toEqual({ user: null });
@@ -187,8 +189,8 @@ describe('user administration and first-password gate', () => {
     await errorCode(await request(backend, '/api/me', 'PATCH', { floor: '4', desk: 'C-8' }, first.cookie), 400, 'VALIDATION_ERROR');
     const profileResponse = await request(backend, '/api/me', 'PATCH', { language: 'en' }, first.cookie);
     expect(userResponseSchema.parse(await profileResponse.json()).user).toMatchObject({ language: 'en' });
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password }), 401, 'INVALID_CREDENTIALS');
-    await login(backend, 'employee', newPassword);
+    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
+    await login(backend, 'employee', newPin);
   });
 
   test('reset revokes every device and requires another password change', async () => {
@@ -196,15 +198,15 @@ describe('user administration and first-password gate', () => {
     await initialize(backend);
     const admin = await login(backend);
     const target = await createUser(backend, admin.cookie);
-    const first = await login(backend, 'employee');
-    const second = await login(backend, 'employee');
-    expect((await request(backend, '/api/users/' + target.id + '/reset-password', 'POST', { newPassword }, admin.cookie)).status).toBe(200);
+    const first = await login(backend, 'employee', pin);
+    const second = await login(backend, 'employee', pin);
+    expect((await request(backend, '/api/users/' + target.id + '/reset-password', 'POST', { newPassword: newPin }, admin.cookie)).status).toBe(200);
     for (const device of [first, second]) {
       expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
-      await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, device.cookie), 401, 'UNAUTHORIZED');
+      await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, device.cookie), 401, 'UNAUTHORIZED');
     }
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password }), 401, 'INVALID_CREDENTIALS');
-    expect((await login(backend, 'employee', newPassword)).user.mustChangePassword).toBe(true);
+    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
+    expect((await login(backend, 'employee', newPin)).user.mustChangePassword).toBe(true);
   });
 
   test('deactivation revokes every session, prevents login, and keeps the user record', async () => {
@@ -212,18 +214,82 @@ describe('user administration and first-password gate', () => {
     await initialize(backend);
     const admin = await login(backend);
     const target = await createUser(backend, admin.cookie);
-    const first = await login(backend, 'employee');
-    const second = await login(backend, 'employee');
+    const first = await login(backend, 'employee', pin);
+    const second = await login(backend, 'employee', pin);
     const response = await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: false }, admin.cookie);
     expect(userResponseSchema.parse(await response.json()).user.isActive).toBe(false);
     for (const device of [first, second]) {
       expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
     }
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password }), 401, 'INVALID_CREDENTIALS');
+    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
     expect(backend.db.select().from(user).where(eq(user.id, target.id)).get()).toBeDefined();
     expect((await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie)).status).toBe(200);
-    expect((await login(backend, 'employee')).user.mustChangePassword).toBe(true);
+    expect((await login(backend, 'employee', pin)).user.mustChangePassword).toBe(true);
     expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, first.cookie)).json()).toEqual({ user: null });
+  });
+
+  test('removing a person hides them, revokes every session and preserves order history', async () => {
+    const backend = fixture();
+    await initialize(backend);
+    const admin = await login(backend);
+    const target = await createUser(backend, admin.cookie);
+    const first = await login(backend, 'employee', pin);
+    expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, first.cookie)).status).toBe(200);
+    const second = await login(backend, 'employee', newPin);
+    const menu = menuResponseSchema.parse(await (await request(backend, '/api/menu', 'GET', undefined, first.cookie)).json());
+    const placed = await request(backend, '/api/orders', 'POST', {
+      idempotencyKey: crypto.randomUUID(), note: '',
+      items: [{ itemId: menu.items[0].id, quantity: 1 }],
+    }, first.cookie);
+    expect(placed.status).toBe(201);
+    const original = orderResponseSchema.parse(await placed.json()).order;
+    expect((await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie)).status).toBe(200);
+    const list = z.object({ users: z.array(publicUserSchema) }).parse(await (await request(backend, '/api/users', 'GET', undefined, admin.cookie)).json());
+    expect(list.users.some((person) => person.id === target.id)).toBe(false);
+    const stored = backend.db.select().from(user).where(eq(user.id, target.id)).get();
+    expect(stored?.deletedAt).toBeInstanceOf(Date);
+    expect(stored?.banned).toBe(true);
+    for (const device of [first, second]) {
+      expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
+    }
+    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: newPin }), 401, 'INVALID_CREDENTIALS');
+    await errorCode(await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie), 404, 'USER_NOT_FOUND');
+    await errorCode(await request(backend, '/api/users/' + target.id + '/reset-password', 'POST', { newPassword: pin }, admin.cookie), 404, 'USER_NOT_FOUND');
+    await errorCode(await request(backend, '/api/users', 'POST', createdUser, admin.cookie), 409, 'USERNAME_TAKEN');
+    const history = ordersResponseSchema.parse(await (await request(backend, '/api/work/orders', 'GET', undefined, admin.cookie)).json());
+    expect(history.orders.find((order) => order.id === original.id)).toMatchObject(original);
+    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie), 404, 'USER_NOT_FOUND');
+  });
+
+  test('removal requires an administrator, a valid origin and a valid target', async () => {
+    const backend = fixture();
+    await initialize(backend);
+    const admin = await login(backend);
+    const target = await createUser(backend, admin.cookie);
+    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE'), 401, 'UNAUTHORIZED');
+    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie, 'http://attacker.invalid'), 403, 'INVALID_ORIGIN');
+    for (const role of ['employee', 'staff'] as const) {
+      await createUser(backend, admin.cookie, { username: role + '_actor', role });
+      const actor = await login(backend, role + '_actor', pin);
+      expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, actor.cookie)).status).toBe(200);
+      await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, actor.cookie), 403, 'FORBIDDEN');
+    }
+    await errorCode(await request(backend, '/api/users/' + 'x'.repeat(129), 'DELETE', {}, admin.cookie), 400, 'VALIDATION_ERROR');
+    await errorCode(await request(backend, '/api/users/' + crypto.randomUUID(), 'DELETE', {}, admin.cookie), 404, 'USER_NOT_FOUND');
+    expect(backend.db.select().from(user).where(eq(user.id, target.id)).get()?.deletedAt).toBeNull();
+  });
+
+  test('removal protects the last administrator while preserving the setup record', async () => {
+    const backend = fixture();
+    const initial = await initialize(backend);
+    const admin = await login(backend);
+    await errorCode(await request(backend, '/api/users/' + initial.id, 'DELETE', {}, admin.cookie), 409, 'LAST_ACTIVE_ADMIN');
+    const next = await createUser(backend, admin.cookie, { username: 'next_admin', role: 'admin', password });
+    const actor = await login(backend, next.username);
+    expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, actor.cookie)).status).toBe(200);
+    expect((await request(backend, '/api/users/' + initial.id, 'DELETE', {}, actor.cookie)).status).toBe(200);
+    expect(await (await request(backend, '/api/setup')).json()).toEqual({ setupRequired: false });
+    await errorCode(await request(backend, '/api/users/' + next.id, 'DELETE', {}, actor.cookie), 409, 'LAST_ACTIVE_ADMIN');
   });
 
   test('protects the last active administrator and applies role changes immediately', async () => {
@@ -233,11 +299,12 @@ describe('user administration and first-password gate', () => {
     for (const body of [{ role: 'employee' }, { isActive: false }]) {
       await errorCode(await request(backend, '/api/users/' + initial.id, 'PATCH', body, admin.cookie), 409, 'LAST_ACTIVE_ADMIN');
     }
-    const second = await createUser(backend, admin.cookie, { username: 'second_admin', role: 'admin' });
+    const second = await createUser(backend, admin.cookie, { username: 'second_admin', role: 'admin', password });
     const secondLogin = await login(backend, 'second_admin');
     expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, secondLogin.cookie)).status).toBe(200);
     expect((await request(backend, '/api/users/' + initial.id, 'PATCH', { role: 'staff', name: 'Staff' }, secondLogin.cookie)).status).toBe(200);
-    await errorCode(await request(backend, '/api/users', 'GET', undefined, admin.cookie), 403, 'FORBIDDEN');
+    // Crossing the admin boundary clears the credential and revokes sessions.
+    await errorCode(await request(backend, '/api/users', 'GET', undefined, admin.cookie), 401, 'UNAUTHORIZED');
     await errorCode(await request(backend, '/api/users/' + second.id, 'PATCH', { isActive: false }, secondLogin.cookie), 409, 'LAST_ACTIVE_ADMIN');
   });
 

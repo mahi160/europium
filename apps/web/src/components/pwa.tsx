@@ -5,6 +5,8 @@ import { pushConfigSchema, type PublicUser } from '@office-service/shared';
 import { api, ApiError, successResponse } from '../api';
 import { ErrorNotice } from './forms';
 import { Button } from './ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './ui/collapsible';
 import { useOffline } from '../realtime';
 
 interface InstallPrompt extends Event {
@@ -65,14 +67,14 @@ export function PwaSetup({ user }: { user: PublicUser }) {
     } catch (cause) { setError(cause instanceof ApiError ? cause : new ApiError('PUSH_UNAVAILABLE')); }
     finally { setBusy(false); }
   }
-  return <section className="panel pwa"><h2>{t('pwaTitle')}</h2>
-    <p className="muted">{t(installed ? 'pwaInstalled' : 'pwaInstallHelp')}</p>
-    {!installed && prompt && <Button variant="secondary" onClick={() => { void prompt.prompt().catch(() => setError(new ApiError('PUSH_UNAVAILABLE'))); pendingInstall = null; setPrompt(null); }}>{t('pwaInstall')}</Button>}
-    {!installed && <p className="hint">{t('pwaIos')}</p>}
-    <h3>{t('pwaNotifications')}</h3>
-    <p role="status" className="muted">{t(!supported() ? 'pwaUnsupported' : denied ? 'pwaDenied' : config.isPending ? 'loading' : !config.data?.publicKey ? 'pwaUnavailable' : enabled ? 'pwaEnabled' : 'pwaExplicit')}</p>
-    <Button disabled={!supported() || denied || !config.data?.publicKey || offline || busy} onClick={() => void enable()}>{t('pwaEnable')}</Button>
+  return <Card><CardHeader><CardTitle><h2>{t('pwaTitle')}</h2></CardTitle></CardHeader><CardContent className="grid gap-4">
+    <p role="status">{t(!supported() ? 'pwaUnsupported' : denied ? 'pwaDenied' : config.isPending ? 'loading' : !config.data?.publicKey ? 'pwaUnavailable' : enabled ? 'pwaEnabled' : 'pwaExplicit')}</p>
+    {!enabled && supported() && !denied && config.data?.publicKey && <Button variant="secondary" disabled={offline || busy} onClick={() => void enable()}>{t('pwaEnable')}</Button>}
     <ErrorNotice error={error ?? config.error}/>
-    <details className="hint"><summary>{t('pwaRequirements')}</summary><p>{t('pwaPrerequisites')}</p></details>
-  </section>;
+    {installed ? <p>{t('pwaInstalled')}</p> : <Collapsible className="grid gap-4"><CollapsibleTrigger render={<Button variant="secondary"/>}>{t('pwaInstall')}</CollapsibleTrigger><CollapsibleContent className="grid gap-4">
+      {prompt ? <Button variant="secondary" onClick={() => { void prompt.prompt().catch(() => setError(new ApiError('PUSH_UNAVAILABLE'))); pendingInstall = null; setPrompt(null); }}>{t('pwaInstall')}</Button> : <p>{t('pwaInstallHelp')}</p>}
+      <p>{t('pwaIos')}</p>
+    </CollapsibleContent></Collapsible>}
+    <Collapsible className="grid gap-4"><CollapsibleTrigger render={<Button variant="secondary"/>}>{t('pwaRequirements')}</CollapsibleTrigger><CollapsibleContent><p>{t('pwaPrerequisites')}</p></CollapsibleContent></Collapsible>
+  </CardContent></Card>;
 }

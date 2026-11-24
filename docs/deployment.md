@@ -122,6 +122,12 @@ On each client, reopen the exact configured HTTPS address, such as `https://192.
 
 The app offers English and Bangla device-trust guidance on both desktop and mobile sign-in/setup screens. The existing protected bootstrap form requires the privately supplied `SETUP_TOKEN` to create the first administrator. After successful setup, sign in using the new account. The database records setup completion; changing the token, rerunning the installer, or restarting containers cannot reopen first-admin creation. Do not delete the database to recover an account; use the existing administrator reset flow.
 
+### Employee and staff PINs
+
+Employees and support staff use username plus a four-digit PIN, not a password. Administrators retain passwords. Existing non-admin accounts are signed out by the PIN migration and need a temporary PIN issued through People; accounts and orders are preserved. The user must change that temporary PIN at first sign-in. Moving between administrator and non-administrator roles revokes sessions and requires a credential reset appropriate to the new role.
+
+PINs have only 10,000 combinations and are weaker than long passwords. Keep trusted HTTPS, LAN-only access and the persistent per-account attempt limits enabled. Preserve `AUTH_SECRET` with the original protected configuration: PIN hashing now depends on it. Use the existing backup-guarded upgrade process to apply the migration in production.
+
 ## Persistence and reruns
 
 The fixed Compose project is `office-service`. Its named volumes are:

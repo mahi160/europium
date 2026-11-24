@@ -5,6 +5,8 @@ export const roleSchema = z.enum(['employee', 'staff', 'admin']);
 export const languageSchema = z.enum(['bn', 'en']);
 export const usernameSchema = z.string().trim().toLowerCase().min(3).max(32).regex(/^[a-z0-9_]+$/);
 export const passwordSchema = z.string().min(12).max(128);
+export const pinSchema = z.string().length(4).regex(/^[0-9]{4}$/);
+const credentialSchema = z.union([passwordSchema, pinSchema]);
 const nameSchema = z.string().trim().min(1).max(100);
 const locationSchema = z.string().trim().max(100);
 
@@ -25,9 +27,9 @@ export const loginSchema = z.strictObject({
 });
 export const createUserSchema = profileSchema.extend({
   username: usernameSchema,
-  password: passwordSchema,
+  password: credentialSchema.default('0000'),
   role: roleSchema,
-});
+}).refine((value) => (value.role === 'admin' ? passwordSchema : pinSchema).safeParse(value.password).success);
 export const updateUserSchema = profileSchema.extend({
   role: roleSchema,
   isActive: z.boolean(),
@@ -36,9 +38,9 @@ export const updateUserSchema = profileSchema.extend({
 export const updateProfileSchema = profileSchema.omit({ floor: true, desk: true }).partial().refine((value) => Object.keys(value).length > 0);
 export const changePasswordSchema = z.strictObject({
   currentPassword: z.string().min(1).max(128),
-  newPassword: passwordSchema,
+  newPassword: credentialSchema,
 }).refine((value) => value.currentPassword !== value.newPassword);
-export const resetPasswordSchema = z.strictObject({ newPassword: passwordSchema });
+export const resetPasswordSchema = z.strictObject({ newPassword: credentialSchema });
 export const userIdSchema = z.string().min(1).max(128);
 export const publicUserSchema = profileSchema.extend({
   id: userIdSchema,
@@ -49,7 +51,7 @@ export const publicUserSchema = profileSchema.extend({
 });
 export const apiErrorCodeSchema = z.enum([
   'VALIDATION_ERROR', 'UNAUTHORIZED', 'FORBIDDEN', 'PASSWORD_CHANGE_REQUIRED',
-  'INVALID_CREDENTIALS', 'INVALID_CURRENT_PASSWORD', 'SETUP_COMPLETE',
+  'INVALID_CREDENTIALS', 'INVALID_CURRENT_PASSWORD', 'CREDENTIAL_UNCHANGED', 'SETUP_COMPLETE',
   'INVALID_SETUP_TOKEN', 'USERNAME_TAKEN', 'USER_NOT_FOUND', 'LAST_ACTIVE_ADMIN',
   'INVALID_ORIGIN', 'BODY_TOO_LARGE', 'RATE_LIMITED', 'NOT_FOUND', 'INTERNAL_ERROR',
   'ITEM_UNAVAILABLE', 'IDEMPOTENCY_MISMATCH', 'ORDER_NOT_PENDING', 'ORDER_CONFLICT',

@@ -17,7 +17,8 @@ import { orderHistory, orders, session, user } from './schema';
 
 const origin = 'http://localhost:5173';
 const password = 'fulfillment-initial-password-123';
-const personalPassword = 'fulfillment-personal-password-456';
+const pin = '1234';
+const personalPin = '5678';
 const setupToken = 'fulfillment-setup-token-at-least-32-characters';
 const profile = { name: 'অফিস কর্মী', floor: '৩', desk: 'D12', language: 'en' } as const;
 const userResponse = z.object({ user: publicUserSchema });
@@ -32,8 +33,8 @@ async function failure(response: Response, status: number, code: string) {
   expect(response.status).toBe(status);
   expect(apiErrorSchema.parse(await response.json()).error.code).toBe(code);
 }
-async function login(backend: ReturnType<typeof createApp>, username: string) {
-  const response = await request(backend, '/auth/login', 'POST', { username, password });
+async function login(backend: ReturnType<typeof createApp>, username: string, secret = password) {
+  const response = await request(backend, '/auth/login', 'POST', { username, password: secret });
   expect(response.status).toBe(200);
   return response.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
 }
@@ -45,11 +46,11 @@ async function fixture() {
   expect((await request(backend, '/setup', 'POST', { ...profile, username: 'admin', password, setupToken })).status).toBe(201);
   const admin = await login(backend, 'admin');
   async function person(role: 'staff' | 'employee', username: string) {
-    const created = await request(backend, '/users', 'POST', { ...profile, name: username, username, role, password }, admin);
+    const created = await request(backend, '/users', 'POST', { ...profile, name: username, username, role, password: pin }, admin);
     expect(created.status).toBe(201);
     const value = userResponse.parse(await created.json()).user;
-    const cookie = await login(backend, username);
-    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: password, newPassword: personalPassword }, cookie)).status).toBe(200);
+    const cookie = await login(backend, username, pin);
+    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, cookie)).status).toBe(200);
     return { ...value, cookie };
   }
   const employee = await person('employee', 'employee');

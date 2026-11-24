@@ -116,6 +116,20 @@ export function registerOrders(app: Hono<AppEnv>, { db, sqlite }: ReturnType<typ
     const values = db.select().from(orders).where(service.workScope(current)).orderBy(asc(orders.createdAt), asc(orders.id)).all();
     return c.json({ orders: values.map(orderView) });
   });
+  app.get('/api/work/acceptances', async (c) => {
+    const actor = await actorFor(c);
+    const current = freshActor(actor);
+    if (current.role !== 'staff') return c.json({ acceptances: [] });
+    // Recent claims by other staff on requests that are still accepted, newest first.
+    const acceptances = sqlite.prepare<[string, string, number], { id: number; requestedBy: string; acceptedBy: string }>(`
+      SELECT h.id, u.name AS requestedBy, h.actor_name AS acceptedBy
+      FROM order_history h JOIN orders o ON o.id = h.order_id JOIN user u ON u.id = o.user_id
+      WHERE h.action = 'accept' AND h.actor_id != ? AND o.user_id != ? AND h.at >= ? AND o.status = 'ACCEPTED'
+        AND h.id = (SELECT max(id) FROM order_history WHERE order_id = o.id)
+      ORDER BY h.id DESC LIMIT 5
+    `).all(current.id, current.id, Date.now() - 10 * 60 * 1000);
+    return c.json({ acceptances });
+  });
   for (const action of ['accept', 'deliver', 'reject', 'requeue'] as const) {
     app.post('/api/orders/:id/' + action, async (c) => {
       const actor = await actorFor(c);

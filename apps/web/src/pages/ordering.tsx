@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -13,11 +13,15 @@ import { number } from '../i18n';
 import { OrderCard } from '../components/order-card';
 import { ErrorNotice, Field, Form, text } from '../components/forms';
 import { Button } from '../components/ui/button';
-import { useOffline } from '../realtime';
-import { OrderFocus } from '../components/order-focus';
-
-// Quick instructions; kept in Bangla for staff like menu names, and stored in the order note.
-const noteOptions = ['দুধ', 'চিনি', 'কম চিনি', 'চিনি ছাড়া'];
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Card, CardContent } from '../components/ui/card';
+import { Field as FieldRoot, FieldDescription, FieldLabel } from '../components/ui/field';
+import { NativeSelect, NativeSelectOption } from '../components/ui/native-select';
+import { Checkbox } from '../components/ui/checkbox';
+import { Badge } from '../components/ui/badge';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { IconMinus, IconPlus } from '@tabler/icons-react';
+import { RealtimeStatus, useOffline } from '../realtime';
 
 export function Ordering({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -26,26 +30,34 @@ export function Ordering({ user }: { user: PublicUser }) {
   const store = draftFor(user.id);
   const draft = useStore(store);
   const menu = useQuery({ queryKey: ['menu', user.id, user.role], queryFn: () => api('/menu', menuResponseSchema) });
+  const orders = useQuery({ queryKey: ['orders', user.id], queryFn: () => api('/orders', ordersResponseSchema) });
   const [busy, setBusy] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<Error | null>(null);
+  const confirmation = useRef<HTMLElement>(null);
+  const review = useRef<HTMLElement>(null);
+  const [chosenId, setChosenId] = useState<string | null>(null);
+  const [servings, setServings] = useState(1);
+  const [added, setAdded] = useState('');
+  const items = (menu.data?.items ?? []).filter((item) => !item.archived);
+  const chosen = items.find((item) => item.id === chosenId) ?? items[0];
+  useEffect(() => {
+    if (submittedId) { confirmation.current?.focus(); confirmation.current?.scrollIntoView({ block: 'start' }); }
+  }, [submittedId]);
   const frozen = draft.attempted !== null;
   const selected = Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0);
-  const noteParts = draft.note.split(',').map((part) => part.trim()).filter(Boolean);
-  function toggleOption(option: string) {
-    const note = (noteParts.includes(option) ? noteParts.filter((part) => part !== option) : [...noteParts, option]).join(', ');
-    if (note.length <= 500) draft.edit({ note });
-  }
-  const nameOf = (id: string) => menu.data?.items.find((item) => item.id === id)?.name ?? t('removedItem');
+  const total = selected.reduce((sum, [, quantity]) => sum + quantity, 0);
+  const location = [user.floor && t('floor') + ' ' + user.floor, user.desk && t('desk') + ' ' + user.desk].filter(Boolean).join(' · ');
   async function submit() {
     if (!navigator.onLine || offline) throw new ApiError('NETWORK_ERROR');
     if (busy) return;
-    setBusy(true); setSubmitted(false);
+    setBusy(true);
     try {
       const payload = store.getState().attempt();
-      await api('/orders', orderResponseSchema, 'POST', payload);
+      const result = await api('/orders', orderResponseSchema, 'POST', payload);
       store.getState().clear();
-      setSubmitted(true);
       await client.invalidateQueries({ queryKey: ['orders', user.id] });
+      setSubmittedId(result.order.id);
     } catch (cause) {
       if (cause instanceof ApiError && ['VALIDATION_ERROR', 'ITEM_UNAVAILABLE'].includes(cause.code)) {
         store.getState().rejected();
@@ -54,72 +66,96 @@ export function Ordering({ user }: { user: PublicUser }) {
       throw cause instanceof z.ZodError && !store.getState().attempted ? new ApiError('VALIDATION_ERROR') : cause;
     } finally { setBusy(false); }
   }
-  return <>
-    <div className="ordering">
-      <section aria-labelledby="refreshments-heading"><h2 id="refreshments-heading" className="section-title">{t('refreshments')}</h2>
-        {menu.isPending && <p role="status" className="muted">{t('loading')}</p>}<ErrorNotice error={menu.error} retry={() => void menu.refetch()}/>
-        <ul className="list">{menu.data?.items.filter((item) => !item.archived).map((item) => {
-          const quantity = draft.quantities[item.id] ?? 0;
-          return <li className={'menu-row' + (quantity > 0 ? ' chosen' : '')} key={item.id}>
-            <div className="menu-copy"><strong>{item.name}</strong><span className="muted">{item.available ? item.unit : t('unavailable')}</span></div>
-            <div className="stepper" role="group" aria-label={t('quantityFor', { name: item.name })}>
-              <Button variant="ghost" aria-label={t('decrease', { name: item.name })} disabled={busy || frozen || quantity === 0} onClick={() => draft.edit({ quantities: { ...draft.quantities, [item.id]: quantity - 1 } })}>−</Button>
-              <output aria-label={t('quantityFor', { name: item.name })}>{number(quantity)}</output>
-              <Button variant="ghost" aria-label={t('increase', { name: item.name })} disabled={busy || frozen || !item.available || quantity >= Number.MAX_SAFE_INTEGER} onClick={() => { setSubmitted(false); draft.edit({ quantities: { ...draft.quantities, [item.id]: quantity + 1 } }); }}>+</Button>
-            </div></li>;
-        })}</ul>
-        {menu.data && !menu.data.items.some((item) => !item.archived) && <p className="empty">{t('emptyMenu')}</p>}
+  return <div className="kiosk-ordering">
+    <div className="kiosk-toolbar"><RealtimeStatus/><Button className="kiosk-basket" variant="secondary" onClick={() => { review.current?.focus(); review.current?.scrollIntoView({ block: 'start' }); }}>{t('yourOrder')} <span>{number(total)}</span></Button></div>
+    <div className="kiosk-content">
+      <section className="kiosk-copy" aria-labelledby="kiosk-heading">
+        <h1 id="kiosk-heading">{t('kiosk.title')}</h1>
+        <p>{t('kiosk.intro')}</p>
+        <h2 className="sr-only">{t('refreshments')}</h2>
+        {menu.isPending && <p role="status">{t('loading')}</p>}
+        <ErrorNotice error={menu.error} retry={() => void menu.refetch()}/>
+        <div className="kiosk-choices" role="group" aria-label={t('kiosk.selection')}>
+          {items.map((item) => <Button key={item.id} variant="outline" aria-pressed={chosen?.id === item.id} onClick={() => { setChosenId(item.id); setServings(1); setAdded(''); }}>{item.name}{!item.available && <span className="sr-only"> · {t('unavailable')}</span>}</Button>)}
+        </div>
+        {menu.data && items.length === 0 && <FieldDescription>{t('emptyMenu')}</FieldDescription>}
       </section>
-      <section className="panel basket"><Form title={t('yourOrder')} submit={t(frozen ? 'retryOrder' : 'placeOrder')} disabled={offline} showSaved={false} onSubmit={submit}>
-        <ul className="basket-items" aria-live="polite">{selected.length === 0 ? <li className="muted">{t('chooseItems')}</li> : selected.map(([id, quantity]) => <li key={id}>
-          <span>{nameOf(id)} <span className="muted">× {number(quantity)}</span></span>
-          <Button variant="ghost" className="link-button" disabled={busy || frozen} aria-label={t('removeItem', { name: nameOf(id) })} onClick={() => draft.edit({ quantities: { ...draft.quantities, [id]: 0 } })}>{t('remove')}</Button>
-        </li>)}</ul>
-        <fieldset disabled={busy || frozen}>
-          <div className="chips" role="group" aria-label={t('preferences')}>{noteOptions.map((option) => <Button key={option} variant="ghost" className="chip" aria-pressed={noteParts.includes(option)} onClick={() => toggleOption(option)}>{option}</Button>)}</div>
-          <Field label={t('orderNote')} name="note" value={draft.note} maxLength={500} onChange={(e) => draft.edit({ note: e.target.value })}/></fieldset>
-        {frozen && <p className="notice">{t('retryHelp')}</p>}
-        {submitted && <p role="status" className="success">{t('orderPlaced')}</p>}
-      </Form></section>
+      {chosen && <section className="kiosk-product" aria-labelledby="chosen-name">
+        <div className="kiosk-stage"><RefreshmentArt category={chosen.category}/><p>{t('kiosk.prepared')}</p></div>
+        <div className="kiosk-choice">
+          <div><h2 id="chosen-name">{chosen.name}</h2><p>{chosen.available ? chosen.unit : t('unavailable')}</p></div>
+          <div className="kiosk-stepper" role="group" aria-label={t('kiosk.servings')}>
+            <Button variant="outline" size="icon" aria-label={t('kiosk.decrease')} disabled={busy || frozen || servings === 1} onClick={() => setServings(servings - 1)}><IconMinus aria-hidden="true"/></Button>
+            <output aria-label={t('kiosk.servings')}>{number(servings)}</output>
+            <Button variant="outline" size="icon" aria-label={t('kiosk.increase')} disabled={busy || frozen || servings >= Number.MAX_SAFE_INTEGER - (draft.quantities[chosen.id] ?? 0)} onClick={() => setServings(servings + 1)}><IconPlus aria-hidden="true"/></Button>
+          </div>
+        </div>
+        <Button className="kiosk-add" disabled={busy || frozen || !chosen.available || servings > Number.MAX_SAFE_INTEGER - (draft.quantities[chosen.id] ?? 0)} onClick={() => {
+          draft.edit({ quantities: { ...draft.quantities, [chosen.id]: (draft.quantities[chosen.id] ?? 0) + servings } });
+          setSubmittedId(null);
+          setAdded(t('kiosk.added', { name: chosen.name }));
+        }}>{t('kiosk.add', { quantity: number(servings) })}<span aria-hidden="true">→</span></Button>
+        <p className="kiosk-added" role="status">{added}</p>
+      </section>}
     </div>
-    <MyOrders user={user}/>
-  </>;
+    <footer className="kiosk-delivery"><p>{location ? <>{t('kiosk.delivery')} <strong>{location}</strong></> : t('kiosk.locationHelp')}</p><p>{t('kiosk.footer')}</p></footer>
+    <section className="kiosk-review" ref={review} tabIndex={-1} aria-label={t('kiosk.review')}>
+      <div className="kiosk-section-heading"><h2>{t('yourOrder')}</h2><span>{t('kiosk.count', { quantity: number(total) })}</span></div>
+      {selected.length > 0 || frozen ? <Form title={t('yourOrder')} hideTitle submit={t(frozen ? 'retryOrder' : 'placeOrder')} disabled={offline} showSaved={false} onSubmit={submit}>
+        <ul className="kiosk-order-lines">{selected.map(([id, quantity]) => {
+          const item = items.find((item) => item.id === id);
+          const name = item?.name ?? t('removedItem');
+          return <li key={id}><div><strong>{name}</strong>{item && !item.available && <FieldDescription>{t('unavailable')}</FieldDescription>}</div><span>× {number(quantity)}</span><Button variant="ghost" aria-label={t('removeItem', { name })} disabled={busy || frozen} onClick={() => { draft.edit({ quantities: { ...draft.quantities, [id]: 0 } }); setAdded(''); }}>{t('remove')}</Button></li>;
+        })}</ul>
+        <Field label={t('orderNote')} name="note" value={draft.note} disabled={busy || frozen} maxLength={500} onChange={(event) => draft.edit({ note: event.target.value })}/>
+        {frozen && <Alert role="status"><AlertDescription>{t('retryHelp')}</AlertDescription></Alert>}
+      </Form> : <FieldDescription>{t('chooseItems')}</FieldDescription>}
+      {submittedId && <section className="kiosk-confirmation" ref={confirmation} tabIndex={-1} aria-label={t('orderPlaced')}><p role="status">{t('orderPlaced')}</p></section>}
+    </section>
+    <section className="kiosk-history" aria-labelledby="orders-heading">
+      <h2 id="orders-heading">{t('orders')}</h2>
+      <ErrorNotice error={orderError ?? orders.error} retry={() => { setOrderError(null); void orders.refetch(); }}/>
+      {orders.isPending && <p role="status">{t('loading')}</p>}
+      {orders.data?.orders.length === 0 && <FieldDescription>{t('noOrders')}</FieldDescription>}
+      <div className="kiosk-order-history">{orders.data?.orders.map((order) => <OrderCard key={order.id} order={order} user={user} onError={setOrderError}/>)}</div>
+    </section>
+  </div>;
 }
-export function MyOrders({ user }: { user: PublicUser }) {
-  const { t } = useTranslation();
-  const [error, setError] = useState<Error | null>(null);
-  const result = useQuery({ queryKey: ['orders', user.id], queryFn: () => api('/orders', ordersResponseSchema) });
-  return <section className="my-orders" aria-labelledby="my-orders-heading"><OrderFocus user={user}/>
-    <div className="section-heading"><h2 id="my-orders-heading" className="section-title">{t('orders')}</h2><Button variant="ghost" className="link-button" onClick={() => void result.refetch()}>{t('refreshOrders')}</Button></div>
-    <ErrorNotice error={error ?? result.error} retry={() => { setError(null); void result.refetch(); }}/>
-    {result.isPending && <p role="status" className="muted">{t('loading')}</p>}{result.data?.orders.length === 0 && <p className="empty">{t('noOrders')}</p>}
-    <div className="order-list">{result.data?.orders.map((order) => <OrderCard key={order.id + ':' + order.updatedAt + ':' + order.audit.length} order={order} user={user} onError={setError}/>)}</div>
-  </section>;
+function RefreshmentArt({ category }: { category: MenuItem['category'] }) {
+  return <svg className="refreshment-art" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {category === 'water' ? <><path d="M30 20h40l-5 64H35L30 20Z"/><path d="M33 46c12 7 22-7 35 0M39 72h16"/></>
+      : category === 'snack' ? <><path d="M15 46h70c-4 41-65 41-70 0ZM28 38l6-10 9 9 8-15 10 13 9-6 7 10M40 84h21"/></>
+      : <><path d="M22 42h49v22c0 17-49 17-49 0V42Z"/><path d="M71 45h7c17 0 17 20-7 20M16 84h62M37 16v14M52 12v18"/></>}
+  </svg>;
 }
 export function MenuManagement({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
   const categoryId = useId();
+  const availableId = useId();
+  const archivedId = useId();
   const client = useQueryClient();
   const result = useQuery({ queryKey: ['menu', user.id, user.role], queryFn: () => api('/menu', menuResponseSchema) });
   const [selected, setSelected] = useState<MenuItem | null>(null);
-  const [revision, setRevision] = useState(0);
-  return <div className="split"><section><div className="section-heading"><h2 className="section-title">{t('refreshments')}</h2><Button variant="secondary" onClick={() => { setSelected(null); setRevision(revision + 1); }}>{t('addItem')}</Button></div>
-    <ErrorNotice error={result.error} retry={() => void result.refetch()}/>{result.isPending && <p role="status" className="muted">{t('loading')}</p>}
-    {result.data?.items.length === 0 && <p className="empty">{t('emptyMenu')}</p>}
-    <div className="list">{result.data?.items.map((item) => <button className={'row-button' + (selected?.id === item.id ? ' selected' : '')} key={item.id} onClick={() => { setSelected(item); setRevision(revision + 1); }}>
-      <span className="menu-copy"><strong>{item.name}</strong><span className="muted">{t('categories.' + item.category)}, {item.unit}</span></span>
-      <span className={'badge' + (item.available && !item.archived ? '' : ' badge-off')}>{t(item.archived ? 'archived' : item.available ? 'available' : 'unavailable')}</span>
-    </button>)}</div>
-    </section><section className="panel" key={revision}><Form title={t(selected ? 'editItem' : 'addItem')} submit={t('save')} onSubmit={async (data) => {
+  const [open, setOpen] = useState(false);
+  return <Dialog open={open} onOpenChange={setOpen}><section className="grid max-w-3xl gap-4" aria-label={t('menu')}>
+    <div className="flex flex-wrap items-center justify-between gap-3"><FieldDescription>{t('refreshments')}</FieldDescription><DialogTrigger render={<Button variant="secondary"/>} onClick={() => setSelected(null)}>{t('addItem')}</DialogTrigger></div>
+    <ErrorNotice error={result.error} retry={() => void result.refetch()}/>{result.isPending && <p role="status">{t('loading')}</p>}
+    {result.data?.items.length === 0 && <FieldDescription>{t('emptyMenu')}</FieldDescription>}
+    <div className="grid gap-2">{result.data?.items.map((item) => <Card key={item.id}><CardContent className="flex flex-wrap items-center justify-between gap-3"><div className="grid gap-1"><DialogTrigger render={<Button variant="ghost"/>} onClick={() => setSelected(item)}>{item.name}</DialogTrigger><FieldDescription>{t('categories.' + item.category)}, {item.unit}</FieldDescription></div>
+      <Badge variant={item.available && !item.archived ? 'default' : 'secondary'}>{t(item.archived ? 'archived' : item.available ? 'available' : 'unavailable')}</Badge>
+    </CardContent></Card>)}</div>
+  </section><DialogContent showCloseButton={false} className="max-h-[90dvh] overflow-y-auto"><DialogHeader><DialogTitle>{t(selected ? 'editItem' : 'addItem')}</DialogTitle></DialogHeader>
+    <Form key={selected?.id ?? 'new'} hideTitle title={t(selected ? 'editItem' : 'addItem')} submit={t('save')} onSubmit={async (data) => {
       await api('/menu' + (selected ? '/' + selected.id : ''), menuItemResponseSchema, selected ? 'PATCH' : 'POST', {
         name: text(data, 'name'), category: text(data, 'category'), unit: text(data, 'unit'), available: data.has('available'), archived: data.has('archived'),
       });
-      setSelected(null); setRevision(revision + 1);
-      await client.invalidateQueries({ queryKey: ['menu', user.id] });
+      await client.invalidateQueries({ queryKey: ['menu'] });
+      setOpen(false);
     }}><Field label={t('itemName')} name="name" defaultValue={selected?.name ?? ''} required maxLength={100}/>
-      <div className="field"><label htmlFor={categoryId}>{t('category')}</label><select id={categoryId} name="category" defaultValue={selected?.category ?? 'tea'}>{menuCategorySchema.options.map((category) => <option key={category} value={category}>{t('categories.' + category)}</option>)}</select></div>
+      <FieldRoot><FieldLabel htmlFor={categoryId}>{t('category')}</FieldLabel><NativeSelect id={categoryId} name="category" defaultValue={selected?.category ?? 'tea'}>{menuCategorySchema.options.map((category) => <NativeSelectOption key={category} value={category}>{t('categories.' + category)}</NativeSelectOption>)}</NativeSelect></FieldRoot>
       <Field label={t('banglaUnit')} name="unit" defaultValue={selected?.unit ?? 'কাপ'} required maxLength={30}/>
-      <label className="check"><input type="checkbox" name="available" defaultChecked={selected?.available ?? true}/>{t('available')}</label>
-      <label className="check"><input type="checkbox" name="archived" defaultChecked={selected?.archived ?? false}/>{t('archiveItem')}</label>
-    </Form></section></div>;
+      <FieldRoot orientation="horizontal"><Checkbox id={availableId} name="available" defaultChecked={selected?.available ?? true}/><FieldLabel htmlFor={availableId}>{t('available')}</FieldLabel></FieldRoot>
+      <FieldRoot orientation="horizontal"><Checkbox id={archivedId} name="archived" defaultChecked={selected?.archived ?? false}/><FieldLabel htmlFor={archivedId}>{t('archiveItem')}</FieldLabel></FieldRoot>
+    </Form><DialogClose render={<Button variant="outline"/>}>{t('close')}</DialogClose>
+  </DialogContent></Dialog>;
 }

@@ -11,7 +11,8 @@ import { session, user } from './schema';
 
 const origin = 'http://localhost:5173';
 const password = 'realtime-initial-password-123';
-const personalPassword = 'realtime-personal-password-456';
+const pin = '1234';
+const personalPin = '5678';
 const setupToken = 'realtime-setup-token-at-least-32-characters';
 const profile = { name: 'Realtime person', language: 'en', floor: '3', desk: 'D12' } as const;
 const userResponse = z.object({ user: publicUserSchema });
@@ -94,11 +95,11 @@ async function fixture() {
   }
   const admin = await login('admin');
   async function person(role: 'employee' | 'staff', username: string) {
-    const response = await request(backend, '/users', 'POST', { ...profile, username, role, password }, admin);
+    const response = await request(backend, '/users', 'POST', { ...profile, username, role, password: pin }, admin);
     expect(response.status).toBe(201);
     const value = userResponse.parse(await response.json()).user;
-    const cookie = await login(username);
-    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: password, newPassword: personalPassword }, cookie)).status).toBe(200);
+    const cookie = await login(username, pin);
+    expect((await request(backend, '/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, cookie)).status).toBe(200);
     return { ...value, cookie };
   }
   const employee = await person('employee', 'employee');

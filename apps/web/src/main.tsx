@@ -6,12 +6,12 @@ import '@fontsource/hind-siliguri/400.css';
 import '@fontsource/hind-siliguri/500.css';
 import '@fontsource/hind-siliguri/600.css';
 import './i18n';
-import './style.css';
+import './index.css';
 import { Application } from './pages/application';
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15000, refetchOnWindowFocus: true }, mutations: { retry: false } } });
 const rootRoute = createRootRoute();
-const paths = ['/', '/orders', '/profile', '/users', '/menu', '/work'] as const;
+const paths = ['/', '/admin'] as const;
 const routes = paths.map((path) => createRoute({ getParentRoute: () => rootRoute, path, component: Application }));
 const router = createRouter({ routeTree: rootRoute.addChildren(routes) });
 declare module '@tanstack/react-router' { interface Register { router: typeof router } }

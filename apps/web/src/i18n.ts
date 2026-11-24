@@ -14,7 +14,8 @@ export function applyLanguage(language: string) {
   document.title = i18n.t('app');
 }
 export function number(value: number) {
-  return new Intl.NumberFormat(i18n.language === 'en' ? 'en-BD' : 'bn-BD').format(value);
+  const english = i18n.language === 'en';
+  return new Intl.NumberFormat(english ? 'en-BD' : 'bn-BD', { numberingSystem: english ? 'latn' : 'beng' }).format(value);
 }
 export function date(value: number | string) {
   return new Intl.DateTimeFormat(i18n.language === 'en' ? 'en-BD' : 'bn-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
