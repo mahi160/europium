@@ -12,7 +12,7 @@ export default defineConfig({
   use: { baseURL: 'http://localhost:5183', headless: true },
   webServer: [
     {
-      command: 'pnpm exec tsx apps/api/src/server.ts',
+      command: 'bun apps/api/main.ts',
       url: 'http://localhost:3013/api/setup',
       env: {
         PORT: '3013',

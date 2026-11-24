@@ -73,20 +73,20 @@ export function createPush(
   const publicKey = details?.publicKey ?? null;
   let running: Promise<void> | null = null;
   let stopped = false;
-  const recipients = sqlite.prepare<[number, string, string], Recipient>(`
+  const recipients = sqlite.prepare<Recipient, [number, string, string]>(`
     SELECT p.endpoint, p.p256dh, p.auth, u.language, u.id AS user_id FROM push_subscription p
     JOIN user u ON u.id = p.user_id JOIN session s ON s.id = p.session_id AND s.user_id = u.id
     WHERE u.banned = 0 AND u.must_change_password = 0 AND s.expires_at > ?
       AND ((? = 'staff' AND u.role = 'staff') OR u.id = ?)
     ORDER BY p.endpoint
   `);
-  const validRecipient = sqlite.prepare<[string, number, string, string], Recipient>(`
+  const validRecipient = sqlite.prepare<Recipient, [string, number, string, string]>(`
     SELECT p.endpoint, p.p256dh, p.auth, u.language, u.id AS user_id FROM push_subscription p
     JOIN user u ON u.id = p.user_id JOIN session s ON s.id = p.session_id AND s.user_id = u.id
     WHERE p.endpoint = ? AND u.banned = 0 AND u.must_change_password = 0 AND s.expires_at > ?
       AND ((? = 'staff' AND u.role = 'staff') OR u.id = ?)
   `);
-  const latest = sqlite.prepare<[string, string, number], { id: string }>(`
+  const latest = sqlite.prepare<{ id: string }, [string, string, number]>(`
     SELECT id FROM orders WHERE id = ? AND status = ?
       AND (SELECT max(id) FROM order_history WHERE order_id = orders.id) = ?
   `);
@@ -152,18 +152,18 @@ export function createPush(
       }
     }
   }
-  const eventById = sqlite.prepare<[number], Event>(`
+  const eventById = sqlite.prepare<Event, [number]>(`
     SELECT h.id, h.order_id, h.action, h.to_status, h.reason, o.user_id
     FROM order_history h JOIN orders o ON o.id = h.order_id WHERE h.id = ?
   `);
-  const detailById = sqlite.prepare<[number], Detail>(`
+  const detailById = sqlite.prepare<Detail, [number]>(`
     SELECT h.actor_id, h.actor_name, u.name AS requested_name
     FROM order_history h JOIN orders o ON o.id = h.order_id JOIN user u ON u.id = o.user_id WHERE h.id = ?
   `);
   async function flush() {
     if (!publicKey || stopped) return;
     const events = sqlite
-      .prepare<[], { history_id: number }>('SELECT history_id FROM push_event ORDER BY history_id')
+      .prepare<{ history_id: number }, []>('SELECT history_id FROM push_event ORDER BY history_id')
       .all();
     for (const value of events) {
       if (stopped) return;
@@ -182,7 +182,7 @@ export function createPush(
     const due = sqlite
       .transaction(() => {
         const values = sqlite
-          .prepare<[number], Schedule>(
+          .prepare<Schedule, [number]>(
             'SELECT order_id, history_id, initial FROM push_schedule WHERE due_at <= ? ORDER BY due_at',
           )
           .all(now);
@@ -244,7 +244,7 @@ export function registerPush(
       .transaction(() => {
         security.freshActor(actor);
         const current = sqlite
-          .prepare<[string], { id: string }>('SELECT id FROM session WHERE token = ?')
+          .prepare<{ id: string }, [string]>('SELECT id FROM session WHERE token = ?')
           .get(actor.token);
         if (!current) throw new AppError('UNAUTHORIZED', 401);
         sqlite

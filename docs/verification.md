@@ -1,5 +1,7 @@
 # Implementation verification
 
+Note: the Docker-based checks recorded here predate the switch to the Bun binary and Alpine LXC deployment.
+
 Production-readiness tickets 01–13 are implemented. No registry publication, production migration, live deployment cutover, or real-phone verification was performed.
 
 ## Production-readiness checks

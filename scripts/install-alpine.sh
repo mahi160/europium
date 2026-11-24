@@ -1,6 +1,7 @@
 #!/bin/sh
-# Installs Office Service natively on Alpine Linux (e.g. a Proxmox LXC) without Docker.
-# Run as root from the source checkout: OFFICE_ADDRESS=office.local sh scripts/install-alpine.sh
+# One-time setup of Office Service on Alpine Linux (e.g. a Proxmox LXC), without Docker or Node.
+# Run as root with update-alpine.sh beside this file: OFFICE_ADDRESS=office.local sh install-alpine.sh
+# Installs the latest GitHub release, then cron installs each newer release within 5 minutes.
 set +x
 set -eu
 
@@ -32,22 +33,16 @@ valid_address() {
 }
 
 [ "$(id -u)" = 0 ] || fail 'Run as root inside the Alpine container.'
-[ -f /etc/alpine-release ] || fail 'This installer supports Alpine Linux only. Use scripts/install.sh for Docker hosts.'
-[ -f Caddyfile ] && [ -f pnpm-lock.yaml ] && [ -d apps/api ] || fail 'Run from the root of the Office Service source checkout.'
+[ -f /etc/alpine-release ] || fail 'This installer supports Alpine Linux only.'
+UPDATER=$(dirname -- "$0")/update-alpine.sh
+[ -f "$UPDATER" ] || fail 'Place update-alpine.sh beside install-alpine.sh.'
 ADDRESS=${OFFICE_ADDRESS:-}
 valid_address "$ADDRESS" || fail 'Set OFFICE_ADDRESS to a private IPv4 address or hostname, e.g. office.local.'
-APP=$(pwd)
 
-apk add -q nodejs tini caddy nftables
-apk add -q -t .office-build npm python3 make g++
-npm install --global --silent pnpm@12.14.0
-CI=true /usr/local/bin/pnpm install --frozen-lockfile
-/usr/local/bin/pnpm --filter @office-service/web build
+# The compiled API needs only musl, libgcc and libstdc++.
+apk add -q caddy nftables busybox-openrc curl ca-certificates libgcc libstdc++
+# Earlier installs served the frontend from /srv/office.
 rm -rf /srv/office
-mkdir -p /srv/office
-cp -r apps/web/dist/. /srv/office/
-npm uninstall --global --silent pnpm
-apk del -q .office-build
 
 id office >/dev/null 2>&1 || adduser -S -D -H -h /var/lib/office -s /sbin/nologin office
 install -d -o office -g nogroup -m 700 /var/lib/office
@@ -70,13 +65,12 @@ EOF
 fi
 chmod 600 /etc/conf.d/office-api
 
-cat > /etc/init.d/office-api <<EOF
+cat > /etc/init.d/office-api <<'EOF'
 #!/sbin/openrc-run
 supervisor=supervise-daemon
 name="Office Service API"
-directory="$APP"
-command=/usr/bin/node
-command_args="node_modules/tsx/dist/cli.mjs apps/api/src/server.ts"
+directory="/var/lib/office"
+command=/opt/office/current/office-api
 command_user=office:nogroup
 respawn_delay=2
 output_log=/var/log/office-api.log
@@ -91,15 +85,14 @@ start_pre() {
 EOF
 chmod 755 /etc/init.d/office-api
 
-cp Caddyfile /etc/caddy/Caddyfile
 cat > /etc/conf.d/caddy <<EOF
 export OFFICE_ADDRESS=$ADDRESS
-export SITE_ROOT=/srv/office
+export SITE_ROOT=/opt/office/current/web
 export API_UPSTREAM=127.0.0.1:3000
 export CADDY_CA_DIR=/var/lib/caddy/.local/share/caddy/pki/authorities/local
 EOF
 
-# server.ts listens on every interface; keep the API reachable only through Caddy.
+# The API listens on every interface; keep it reachable only through Caddy.
 cat > /etc/nftables.nft <<'EOF'
 #!/usr/sbin/nft -f
 flush ruleset
@@ -128,10 +121,24 @@ case "$ADDRESS" in
     ;;
 esac
 
-for service in nftables office-api caddy; do
+for service in nftables office-api caddy crond; do
   rc-update add "$service" default >/dev/null
-  rc-service "$service" restart
 done
+rc-service nftables restart
+install -d /usr/local/sbin
+install -m 755 "$UPDATER" /usr/local/sbin/office-update
+/usr/local/sbin/office-update
+[ -x /opt/office/current/office-api ] || fail 'No release is installed; see the messages above.'
+# Apply the service and Caddy configuration written above, even when the latest release was already running.
+rc-service office-api restart
+rc-service caddy restart
+
+CRON='*/5 * * * * /usr/local/sbin/office-update >>/var/log/office-update.log 2>&1'
+{ grep -v 'office-update\|auto-update-alpine' /etc/crontabs/root 2>/dev/null || true; printf '%s\n' "$CRON"; } > /etc/crontabs/root.next
+mv /etc/crontabs/root.next /etc/crontabs/root
+chmod 600 /etc/crontabs/root
+rc-service crond restart
 
 printf 'Office Service is running at https://%s\nDevices set up trust at http://%s/connect\n' "$ADDRESS" "$ADDRESS"
+printf 'New releases install automatically within 5 minutes; see /var/log/office-update.log\n'
 printf 'The setup token is in /etc/conf.d/office-api (root only). Do not print it into shared logs.\n'

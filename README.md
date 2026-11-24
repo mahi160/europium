@@ -2,25 +2,15 @@
 
 A self-hosted office refreshment application with Bengali and English interfaces. Employees place personal orders, support staff claim and fulfill whole orders, and administrators manage people, refreshments and exceptions.
 
-## Install on an Ubuntu office server
+## Install
 
-On a dedicated Ubuntu 22.04 or 24.04 LTS server (amd64/arm64), with `curl`, sudo access and internet connectivity:
+Office Service runs in an Alpine Linux LXC container (for example a Proxmox CT) as a single Bun binary behind Caddy. Follow [the LXC install](docs/deployment.md#install) to set it up once. Afterwards, pushing to the `deploy` branch builds a release that the server installs automatically within 5 minutes; see [auto-update](docs/deployment.md#deploying-and-auto-update).
 
-```sh
-curl --fail --silent --show-error --location https://raw.githubusercontent.com/mahi160/europium/main/scripts/bootstrap-ubuntu.sh --output office-service-ubuntu.sh && sudo sh office-service-ubuntu.sh
-```
-
-This downloads code that will run as root. Review the downloaded script before execution if you have not already reviewed this repository. The convenience URL follows the moving `main` branch.
-
-Confirm the host changes, enter the server's reserved LAN IP or office DNS hostname, and confirm startup. The bootstrap installs prerequisites and missing Docker Engine/Compose/Buildx, enables Docker at boot, downloads the app to `/opt/office-service`, builds it and waits for API readiness. Existing usable Docker is reused; conflicting installations are not automatically removed.
-
-**Before entering credentials**, follow [deployment instructions](docs/deployment.md#establish-trust-before-opening-the-setup-wizard) to install the verified public CA certificate on client devices. Then open the displayed HTTPS address and use `SETUP_TOKEN` from the protected `/opt/office-service/.env` to create the first administrator. Never share that file. Docker port publishing can bypass UFW rules; restrict the server to the office LAN and do not enable router port forwarding.
-
-This bootstrap is for first installation only. Keep its deployment directory and volumes; use [the backup-guarded procedure](docs/backups.md) for upgrades. Real Ubuntu provisioning is not yet runtime-verified.
+Install the office certificate on client devices before entering credentials: see [device trust](docs/deployment.md#connect-devices-install-the-office-certificate). Then open the displayed HTTPS address and use `SETUP_TOKEN` from the protected `/etc/conf.d/office-api` to create the first administrator. Never share that file.
 
 ## Development
 
-Use Node 24 and pnpm 12.14.0:
+Use Node 24, pnpm 12.14.0 and Bun 1.4.5 (the API runs on Bun; the web frontend builds with Node):
 
 ```sh
 pnpm install --frozen-lockfile
@@ -87,14 +77,7 @@ Vite+ provides tasks, Vitest, lint and formatting. `pnpm fmt --check` checks for
 
 ## Deployment and recovery
 
-- [Deployment, installer and local certificate trust](docs/deployment.md)
-- [Encrypted off-server backups, guarded upgrades and replacement restore](docs/backups.md)
+- [Deployment, auto-update, backups and local certificate trust](docs/deployment.md)
 - [Backend contracts and notification/realtime behavior](apps/api/README.md)
 
-For a new installation from a reviewed source checkout:
-
-```sh
-IMAGE_SOURCE=local sh scripts/install.sh
-```
-
-The installer requires existing usable Docker/Compose and asks before starting. It does not install Docker, change DNS, or establish device trust. Existing-installation reruns preserve configuration and do not upgrade. Use the documented backup-guarded upgrade procedure instead. Private-CA HTTPS needs separate trust setup on every client; real Android/iPhone push delivery remains unverified.
+Private-CA HTTPS needs separate trust setup on every client; real Android/iPhone push delivery remains unverified. Off-server backups (for example Proxmox `vzdump` of the container) are the operator's responsibility.

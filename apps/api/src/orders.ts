@@ -200,7 +200,7 @@ export function registerOrders(
     if (current.role !== 'staff') return c.json({ acceptances: [] });
     // Recent claims by other staff on requests that are still accepted, newest first.
     const acceptances = sqlite
-      .prepare<[string, string, number], { id: number; requestedBy: string; acceptedBy: string }>(`
+      .prepare<{ id: number; requestedBy: string; acceptedBy: string }, [string, string, number]>(`
       SELECT h.id, u.name AS requestedBy, h.actor_name AS acceptedBy
       FROM order_history h JOIN orders o ON o.id = h.order_id JOIN user u ON u.id = o.user_id
       WHERE h.action = 'accept' AND h.actor_id != ? AND o.user_id != ? AND h.at >= ? AND o.status = 'ACCEPTED'

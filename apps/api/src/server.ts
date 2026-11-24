@@ -40,7 +40,7 @@ try {
   process.once('SIGTERM', shutdown);
 } catch {
   process.stderr.write(
-    'Backend startup failed. Check protected configuration and storage; pending production migrations require sh scripts/upgrade.sh. Do not delete volumes. See docs/backups.md.\n',
+    'Backend startup failed. Check protected configuration and storage; pending production migrations are applied by the updater or `office-api migrate`.\n',
   );
   process.exitCode = 1;
 }

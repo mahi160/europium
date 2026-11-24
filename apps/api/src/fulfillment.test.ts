@@ -2,10 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createRequire } from 'node:module';
 import { Worker } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { readMigrationFiles } from 'drizzle-orm/migrator';
 import { afterEach, expect, test } from 'vite-plus/test';
 import { eq } from 'drizzle-orm';
@@ -539,9 +538,9 @@ test('transition waits for a competing writer and checks the committed actor and
   const worker = new Worker(
     `
     const { parentPort, workerData } = require('node:worker_threads');
-    const Database = require(workerData.library);
+    const { Database } = require('bun:sqlite');
     const sqlite = new Database(workerData.path);
-    sqlite.pragma('busy_timeout = 5000');
+    sqlite.exec('PRAGMA busy_timeout = 5000');
     sqlite.exec('BEGIN IMMEDIATE');
     sqlite.prepare('UPDATE user SET role = ? WHERE id = ?').run('employee', workerData.userId);
     parentPort.postMessage('locked');
@@ -550,7 +549,6 @@ test('transition waits for a competing writer and checks the committed actor and
     {
       eval: true,
       workerData: {
-        library: createRequire(import.meta.url).resolve('better-sqlite3'),
         path: config.DATABASE_PATH,
         userId: staff.id,
       },
@@ -592,9 +590,9 @@ test('a locked competing claim is authoritative when the waiting API transition 
   const worker = new Worker(
     `
     const { parentPort, workerData } = require('node:worker_threads');
-    const Database = require(workerData.library);
+    const { Database } = require('bun:sqlite');
     const sqlite = new Database(workerData.path);
-    sqlite.pragma('busy_timeout = 5000');
+    sqlite.exec('PRAGMA busy_timeout = 5000');
     sqlite.exec('BEGIN IMMEDIATE');
     const now = Date.now();
     const result = sqlite.prepare("UPDATE orders SET status = 'ACCEPTED', assignee_id = ?, accepted_at = ?, updated_at = ? WHERE id = ? AND status = 'PENDING' AND assignee_id IS NULL").run(workerData.userId, now, now, workerData.orderId);
@@ -606,7 +604,6 @@ test('a locked competing claim is authoritative when the waiting API transition 
     {
       eval: true,
       workerData: {
-        library: createRequire(import.meta.url).resolve('better-sqlite3'),
         path: config.DATABASE_PATH,
         userId: second.id,
         name: second.name,

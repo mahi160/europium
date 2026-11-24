@@ -10,7 +10,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "jsx": "react-jsx",
-    "types": ["node"]
+    "types": ["node", "bun"]
   },
   "include": ["apps/**/*.ts", "apps/**/*.tsx", "packages/**/*.ts", "vite.config.ts"]
 }

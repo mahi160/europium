@@ -38,8 +38,8 @@ export function registerStats(
     };
   }
   const deliveries = sqlite.prepare<
-    [number, number],
-    { id: string; completedAt: number; name: string; quantity: number }
+    { id: string; completedAt: number; name: string; quantity: number },
+    [number, number]
   >(`
     SELECT orders.id, completed_at AS completedAt, order_item.name, order_item.quantity
     FROM orders JOIN order_item ON order_item.order_id = orders.id

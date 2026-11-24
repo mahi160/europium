@@ -1,0 +1,45 @@
+name: Release
+
+# Every push to the deploy branch becomes a GitHub release; the office server installs the latest one.
+on:
+  push:
+    branches: [deploy]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.5
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec vp run types
+      - run: pnpm exec vp lint
+      - run: pnpm test
+      - run: sh scripts/build-release.sh dist-release
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          tag="build-$(printf '%s' "$SHA" | cut -c1-12)"
+          gh release create "$tag" dist-release/office-service.tar.gz dist-release/office-service.tar.gz.sha256 \
+            --target "$SHA" --title "$tag" --notes "Automatic build of $SHA" --latest
+          # Keep the five newest builds so a rollback target stays downloadable.
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
+            while read -r old; do gh release delete "$old" --cleanup-tag --yes; done

@@ -1,6 +1,6 @@
 # Backend contract
 
-The backend runs on Node 24 at port 3000. Install with `pnpm install`, then run `pnpm dev:api` (development) or `pnpm exec vp run api:start`. Configure these environment variables before starting:
+The backend runs on Bun 1.4.5 (`bun:sqlite`) at port 3000. Install with `pnpm install`, then run `pnpm dev:api` (development, `bun --watch apps/api/main.ts`) or `pnpm exec vp run api:start`. Production ships as the compiled `office-api` binary with migrations embedded; `office-api migrate <db>` and `office-api snapshot <db> <dest>` are its maintenance subcommands. Configure these environment variables before starting:
 
 - `AUTH_SECRET`: a random secret of 32–256 characters.
 - `SETUP_TOKEN`: a separate operator-held random token of 32–256 characters. Give it only to the person initializing the service; do not bundle it into frontend code.
@@ -59,7 +59,7 @@ Unknown input properties are rejected. Profile updates cannot change roles or ac
 
 ## Security and persistence
 
-Setup hashes the password before a synchronous SQLite immediate transaction that creates the administrator, credential account, and singleton setup row atomically. The database lock and unique singleton protect setup across processes. No asynchronous callback is passed to a SQLite transaction. Versioned Drizzle SQL migrations and their journal live in `migrations/`; they run under the same cross-process write lock. Production startup initializes a new database but refuses pending migrations on an existing database. Use the backup-guarded upgrade procedure in `../../docs/backups.md` before production migrations or image changes.
+Setup hashes the password before a synchronous SQLite immediate transaction that creates the administrator, credential account, and singleton setup row atomically. The database lock and unique singleton protect setup across processes. No asynchronous callback is passed to a SQLite transaction. Versioned Drizzle SQL migrations and their journal live in `migrations/`; they run under the same cross-process write lock. Production startup initializes a new database but refuses pending migrations on an existing database. The server updater snapshots the database and runs `office-api migrate` before switching releases; see `../../docs/deployment.md`.
 
 Better Auth provides username authentication, password hashing, cookie signing, and database-backed sessions. Its email/password signup is disabled. Internal synthetic emails exist only to satisfy its account schema. The admin plugin's create-user API is called privately with the administrator's session headers; public admin/signup/update/password endpoints are not mounted. Installed-source review confirms that createUser can also run server-only without headers, while setUserPassword and banUser require session headers. Reset, deactivation, and password-change wrappers write credentials, flags, and revocations in synchronous transactions rather than exposing those raw operations; setUserPassword itself does not revoke sessions.
 
@@ -107,7 +107,7 @@ Subscriptions are unique by endpoint and bound to the current user and database 
 
 Only HTTPS endpoints on `fcm.googleapis.com`, `updates.push.services.mozilla.com`, `web.push.apple.com` and single-label `*.push.apple.com` are supported. Credentials, custom ports, fragments, private-LAN endpoints and arbitrary providers are rejected; there is no configurable SSRF bypass or private push provider. P-256 points are validated, subscription keys are bounded canonical base64url, and HTTP bodies retain the global 16 KiB limit. Provider redirects are not followed by the installed transport. Operators must keep DNS/network egress trustworthy.
 
-SQLite migration `0003_push` installs transactional history triggers: every committed pending generation has a durable schedule, nonpending transitions remove it immediately, and employee transitions have a durable output row. This avoids a commit-to-schedule gap. One Node interval in `server.ts` polls every second; `createApp` starts no reminder timer. Each pending generation initially alerts all active subscribed **staff** (not administrators), then alerts every five minutes. Requeue restarts the initial alert and five-minute schedule. Existing pending orders on upgrade start with a reminder. A late tick sends one alert and schedules the next for five minutes from that tick, never replays missed intervals. Each external staff send rechecks pending status and the exact history generation, including after another send yields.
+SQLite migration `0003_push` installs transactional history triggers: every committed pending generation has a durable schedule, nonpending transitions remove it immediately, and employee transitions have a durable output row. This avoids a commit-to-schedule gap. One interval in the server entry point polls every second; `createApp` starts no reminder timer. Each pending generation initially alerts all active subscribed **staff** (not administrators), then alerts every five minutes. Requeue restarts the initial alert and five-minute schedule. Existing pending orders on upgrade start with a reminder. A late tick sends one alert and schedules the next for five minutes from that tick, never replays missed intervals. Each external staff send rechecks pending status and the exact history generation, including after another send yields.
 
 When staff accepts a request, other active subscribed staff (excluding the acceptor and the requester) receive a `claimed` push naming who requested it and who accepted it; it links to `/work` and is skipped if the request has moved on. Staff also see the same notice in the work queue: `GET /api/work/acceptances` returns up to five claims by others from the last ten minutes that are still accepted, refreshed through the existing realtime invalidation.
 
@@ -126,7 +126,7 @@ Prepared integration coverage in `src/push.test.ts` uses real temporary SQLite, 
 The caller owns final verification; no tests, typecheck, lint, formatting check or build were run for ticket 06. Exact commands from the repository root:
 
 ```sh
-pnpm exec vp test run apps/api/src/push.test.ts packages/shared/src/notifications.test.ts apps/web/src/locales/resources.test.ts
+bun --bun vitest run apps/api/src/push.test.ts packages/shared/src/notifications.test.ts apps/web/src/locales/resources.test.ts
 pnpm typecheck
 pnpm lint
 pnpm fmt --check
@@ -140,8 +140,8 @@ The PWA browser configuration builds and previews the production app on localhos
 
 ## Integration tests
 
-`createApp(config)` exports `{ app, db, sqlite, auth, close }` and applies persistent migrations in development/tests or for a new production database; existing production databases require the explicit backup-guarded migration procedure. Tests use real temporary SQLite files and real Better Auth, without mocking application modules. They cover setup races on independent connections, durable sessions, login/logout, reset/deactivation revocation, first-password gates, role enforcement, last-administrator protection, strict validation, body limits, Origin checks, and shared rate limiting.
+`createApp(config)` exports `{ app, db, sqlite, auth, close }` and applies persistent migrations in development/tests or for a new production database; existing production databases are migrated explicitly by `office-api migrate` during the update. Tests use real temporary SQLite files and real Better Auth, without mocking application modules. They cover setup races on independent connections, durable sessions, login/logout, reset/deactivation revocation, first-password gates, role enforcement, last-administrator protection, strict validation, body limits, Origin checks, and shared rate limiting.
 
 `src/events.test.ts` prepares real SQLite/SSE coverage for authorized notifications, content-free frames, idempotent replay, ready reconciliation, missed events, server restart, expiry, revocation, role changes, and stream cleanup. `src/events-recovery.test.ts` adds origin enforcement, transaction rollback without publication, and HTTP reset/deactivation/logout terminating concurrent subscriptions. `e2e/realtime.spec.ts` prepares independent employee/staff live views, network recovery, revocation, and frozen-draft retries. `e2e/realtime-recovery.spec.ts` adds a real-response fetch/event race, page-return reconciliation, suspended status, offline command controls, native reconnect without retry clicks, and a heartbeat-watchdog replacement after simulated device sleep. Both realtime browser fixtures conditionally initialize the office, create unique users, and explicitly save English for the administrator.
 
-Tests, typechecking, linting, and formatting have deliberately not been run; the frontend caller owns final verification. The prepared commands are `pnpm exec vp test run`, `pnpm typecheck`, `pnpm lint`, and `pnpm fmt --check`.
+Tests, typechecking, linting, and formatting have deliberately not been run; the frontend caller owns final verification. The prepared commands are `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm fmt --check`.

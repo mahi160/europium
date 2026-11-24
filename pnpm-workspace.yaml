@@ -9,5 +9,4 @@ overrides:
   'vite@*': npm:@voidzero-dev/vite-plus-core@8.3.8000
 
 allowBuilds:
-  better-sqlite3: true
   esbuild: true

@@ -7,8 +7,8 @@ export default defineConfig({
   fmt: { singleQuote: true },
   run: {
     tasks: {
-      'api:dev': { command: 'tsx watch apps/api/src/server.ts', cache: false },
-      'api:start': { command: 'tsx apps/api/src/server.ts', cache: false },
+      'api:dev': { command: 'bun --watch apps/api/main.ts', cache: false },
+      'api:start': { command: 'bun apps/api/main.ts', cache: false },
       types: { command: 'tsc --noEmit', cache: false },
     },
   },
