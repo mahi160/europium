@@ -12,11 +12,11 @@ import { FieldDescription } from './ui/field';
 export function OrderCard({ order, user, work = false, onError, onTransition }: { order: Order; user: PublicUser; work?: boolean; onError: (error: Error | null) => void; onTransition?: (action: 'accept' | 'deliver') => void }) {
   const { t } = useTranslation();
   const client = useQueryClient();
-  async function transition(action: 'accept' | 'deliver') {
+  async function transition(action: 'accept' | 'deliver' | 'cancel') {
     onError(null);
     try {
-      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', {});
-      onTransition?.(action);
+      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'cancel' ? { reason: '' } : {});
+      if (action !== 'cancel') onTransition?.(action);
     } catch (cause) {
       onError(cause instanceof Error ? cause : new Error());
       throw cause;
@@ -29,7 +29,9 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
   }
   const requester = order.audit.find((entry) => entry.action === 'create')?.actor.name;
   const action = work && order.status === 'PENDING' ? 'accept'
-    : work && order.status === 'ACCEPTED' && (order.assignee?.id === user.id || user.role === 'admin') ? 'deliver' : null;
+    : work && order.status === 'ACCEPTED' && (order.assignee?.id === user.id || user.role === 'admin') ? 'deliver'
+    : !work && user.role === 'employee' && order.userId === user.id && order.status === 'PENDING' ? 'cancel' : null;
+  const label = t(action === 'accept' ? 'acceptOrder' : action === 'cancel' ? 'cancelOrder' : 'completedQueue');
   return <article className="order-ticket" data-status={order.status} aria-label={t('orderAt', { time: date(order.createdAt) })}><Card><CardContent className="grid gap-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Badge variant="secondary">{t('statuses.' + order.status)}</Badge>
@@ -41,6 +43,6 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
     {order.note && <p>{order.note}</p>}
     {order.reason && <p>{t('reason')}: {order.reason}</p>}
     {order.assignee && <FieldDescription>{t('assignee')}: {order.assignee.name}</FieldDescription>}
-    {action && <Form compact showSaved={false} title={t(action === 'accept' ? 'acceptOrder' : 'completedQueue')} submit={t(action === 'accept' ? 'acceptOrder' : 'completedQueue')} onSubmit={() => transition(action)}><></></Form>}
+    {action && <Form compact showSaved={false} title={label} submit={label} variant={action === 'cancel' ? 'secondary' : undefined} onSubmit={() => transition(action)}><></></Form>}
   </CardContent></Card></article>;
 }
