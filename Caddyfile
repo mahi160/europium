@@ -1,5 +1,7 @@
 {
 	skip_install_trust
+	# Browsers send no SNI for IP addresses, and Docker NAT hides the host IP from Caddy.
+	default_sni {$OFFICE_ADDRESS}
 }
 
 https://{$OFFICE_ADDRESS} {
