@@ -4,16 +4,49 @@
 	default_sni {$OFFICE_ADDRESS}
 }
 
+# Plain HTTP only serves the device-connection page, its assets and the public root certificate.
+http://{$OFFICE_ADDRESS} {
+	encode gzip
+
+	handle /office-root.crt {
+		root * {$CADDY_CA_DIR:/data/caddy/pki/authorities/local}
+		rewrite * /root.crt
+		header Content-Type application/x-x509-ca-cert
+		file_server
+	}
+
+	handle /connect {
+		root * {$SITE_ROOT:/srv}
+		rewrite * /connect.html
+		file_server
+	}
+
+	handle /assets/* {
+		root * {$SITE_ROOT:/srv}
+		file_server
+	}
+
+	handle {
+		redir https://{host}{uri} 308
+	}
+}
+
 https://{$OFFICE_ADDRESS} {
 	tls internal
 	encode gzip
 
 	handle /api/* {
-		reverse_proxy api:3000
+		reverse_proxy {$API_UPSTREAM:api:3000}
+	}
+
+	handle /connect {
+		root * {$SITE_ROOT:/srv}
+		rewrite * /connect.html
+		file_server
 	}
 
 	handle {
-		root * /srv
+		root * {$SITE_ROOT:/srv}
 		try_files {path} /index.html
 		file_server
 	}

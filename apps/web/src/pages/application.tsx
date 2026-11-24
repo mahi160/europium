@@ -283,18 +283,11 @@ function LocalAccess({ open }: { open: boolean }) {
       <CollapsibleContent className="grid gap-3 pt-3">
         <FieldDescription>{t('setupTrustHelp')}</FieldDescription>
         <ol className="grid gap-2">
-          <li>{t('setupCertificate')}</li>
-          <li className="grid gap-2">
-            {['Desktop', 'Android', 'Ios'].map((platform) => (
-              <Collapsible key={platform}>
-                <CollapsibleTrigger render={<Button variant="ghost" />}>
-                  {t('setup' + platform)}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <FieldDescription>{t('setup' + platform + 'Help')}</FieldDescription>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+          <li className="grid gap-1">
+            {t('setupCertificate')}
+            <a href={`http://${window.location.host}/connect`} className="font-mono underline">
+              {`http://${window.location.host}/connect`}
+            </a>
           </li>
           <li>{t('setupVerify')}</li>
         </ol>

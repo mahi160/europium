@@ -12,7 +12,7 @@ The API is one Node 24 process on container port 3000, with SQLite on persistent
 - A POSIX shell, ordinary POSIX utilities (including `awk`), and OpenSSL for secure random generation and certificate fingerprints. Use `sh scripts/install.sh`; executable permission is not required. Node and pnpm are not host prerequisites. Images install Node 24 and pnpm 12.14.0; dependency installation is frozen to the repository lockfile and workspace overrides. The Debian Bookworm builder includes Python, make, and g++ for native `better-sqlite3` builds on either architecture. Runtime uses the matching Debian base; Caddy uses the official image.
 - A matching trusted source checkout/archive, with `Dockerfile`, `.dockerignore`, `compose.yaml`, `Caddyfile`, `scripts/install.sh`, workspace manifests, lockfile, and application sources. Use a dedicated, operator-owned directory, not a shared writable directory. Keep this directory and `.env` for the lifetime of the installation.
 - Outbound network access for initial package/base-image downloads in local mode, or access to the actual published GHCR images in registry mode. Authenticate privately with the registry beforehand if required. No credentials belong in image references or command-line arguments.
-- Free TCP ports 80 and 443 on the Docker host; clients need access to TCP 443. Port 80 only redirects to HTTPS. The operator must configure host firewall/Desktop forwarding to allow the office LAN and deny unwanted networks. No router port forwarding or public exposure is needed or recommended.
+- Free TCP ports 80 and 443 on the Docker host; clients need access to TCP 80 and 443. Port 80 serves only the device-connection page and public root certificate, and redirects everything else to HTTPS. The operator must configure host firewall/Desktop forwarding to allow the office LAN and deny unwanted networks. No router port forwarding or public exposure is needed or recommended.
 - A stable private IPv4 LAN address, ideally a DHCP reservation, or a DNS hostname already resolving to that address on every client through existing router/AdGuard DNS. The installer accepts private IPv4 (10/8, 172.16/12, 192.168/16) or DNS labels, without scheme, port, path, whitespace, or shell syntax. IPv6 literals are not supported by this installer. Hostnames must actually resolve to the intended LAN server; syntax validation cannot prove DNS ownership or routing.
 - Durable Docker volume storage for the database, WAL, and Caddy CA. Ensure sufficient disk space and protect host/VM storage and backups from other users. Do not place active SQLite files on a shared/network filesystem. The operator must arrange backups before production upgrades.
 
@@ -35,6 +35,21 @@ It clones `main` into root-owned `/opt/office-service`, prints the downloaded so
 Any existing `/opt/office-service`, including an incomplete bootstrap, is preserved and causes a stop before package installation. Do not delete it or its `.env` to force a rerun. For failures after cloning, inspect the retained directory privately and use the interrupted-install guidance below; for a used installation, use `docs/backups.md`. A failed bootstrap may leave installed system packages, signing-key/repository files and running Docker intact. Repair those explicitly rather than expecting automatic rollback. A retained `/opt/.office-bootstrap.lock` may be removed only after confirming the installer has exited. Run subsequent deployment commands from `/opt/office-service` with `sudo` as needed; its protected `.env` is root-owned.
 
 Automated bootstrap tests use external-command stubs and the real application installer. Actual package installation, image builds, reboot behavior and end-to-end office-device access on Ubuntu remain unverified.
+
+## Alpine LXC without Docker
+
+On Proxmox or another LXC host, Office Service can run natively in a small unprivileged Alpine container instead of Docker: Node 24 runs the API under OpenRC as the unprivileged `office` user and Caddy serves the frontend. Inside a fresh Alpine 3.24+ container with network access, as root:
+
+```sh
+apk add git
+git clone https://github.com/mahi160/europium /opt/office-service
+cd /opt/office-service
+OFFICE_ADDRESS=office.local sh scripts/install-alpine.sh
+```
+
+The installer builds from the checkout, removes the build toolchain afterwards and starts `office-api`, `caddy` and an nftables rule that blocks the API port (3000) from the network, so all traffic goes through Caddy. Secrets are generated once into root-only `/etc/conf.d/office-api` and never replaced on reruns. The database is `/var/lib/office/office.sqlite`; Caddy's CA lives under `/var/lib/caddy`. For a `.local` address, the installer also starts avahi so the name resolves through mDNS without DNS or router changes; mDNS works within one LAN segment, and many Android browsers cannot resolve `.local`.
+
+The Docker backup, upgrade and restore scripts do not apply to this layout. Back up `/etc/conf.d/office-api`, a consistent SQLite snapshot and `/var/lib/caddy` before changing versions; production startup refuses pending migrations on an existing database.
 
 ## Obtain the installer from a reviewed source snapshot
 
@@ -89,9 +104,28 @@ Leave `STATS_TOKEN` unset to disable `GET /api/stats`. To enable it, privately g
 
 The hub sends the token in the `Authorization: Bearer …` header over HTTPS. Configure its runtime to trust the verified Caddy root CA as described below; do not disable certificate verification. Do not place the token in the browser, a URL, or logs. The endpoint returns delivered totals only and does not grant access to ordering APIs.
 
-## Establish trust before opening the setup wizard
+## Connect devices: install the office certificate
 
-The first visit is not trusted merely because the URL starts with HTTPS. An untrusted web page cannot safely bootstrap its own identity. Follow these instructions offline on the operator-controlled host first. Do not bypass a browser certificate warning or enter credentials before establishing trust.
+Caddy signs the HTTPS certificate with its own local CA, so each device must trust that CA once. Until then, browsers show a certificate warning. Bypassing the warning is not enough: service workers, installation and push require trusted HTTPS.
+
+### Device-connection page
+
+On each phone or computer, open `http://OFFICE_ADDRESS/connect` (for example `http://office.local/connect`). Type the `http://` prefix and the `/connect` path: browsers that try HTTPS first would show the certificate warning instead. The page detects the device (iPhone/iPad, Android, Windows, Mac), offers a **Download certificate** button and lists the exact installation steps in English and Bangla. Its **Open Office Service** button opens the HTTPS app; no warning means the device is set up. A **Print QR poster** button prints a QR code linking to the page for staff phones.
+
+Over plain HTTP, Caddy serves only this page, its static assets and the public `root.crt` at `/office-root.crt` (as `application/x-x509-ca-cert`). Every other HTTP request redirects to HTTPS. The CA private keys are never served.
+
+**Accepted risk:** the certificate is downloaded over unauthenticated HTTP, as with AdGuard's certificate setup. Someone able to intercept traffic on the office LAN could serve their own certificate and then impersonate the server to that device. This deployment accepts that risk for ease of setup on a trusted office LAN. Where it is not acceptable, distribute the certificate manually as described below and compare its fingerprint, instead of using the connection page.
+
+Installing a root CA grants substantial trust on a device. Install it only on authorized devices, and remove it when the office service is retired. Never disable certificate validation globally.
+
+Notes per platform:
+
+- **iPhone / iPad:** use Safari. Installing the profile alone is insufficient; full trust must be enabled under **Settings → General → About → Certificate Trust Settings**. See Apple's [manual certificate trust instructions](https://support.apple.com/en-us/102390).
+- **Android:** browsers cannot install CA certificates directly; the file is saved to Downloads and installed from **Settings → … → Encryption & credentials → Install a certificate → CA certificate**. Menu names vary by vendor. Many Android browsers cannot resolve `.local` names; use an IP address or a DNS name in `OFFICE_ADDRESS` if Android devices must connect.
+- **Linux and Firefox:** have the administrator add the certificate to the distribution's CA store; Firefox may need a separate import under **Settings → Privacy & Security → Certificates → View Certificates → Authorities**.
+- Managed devices may need IT approval.
+
+### Manual distribution and fingerprint check
 
 After Caddy starts and creates its CA, run from the deployment root, with the same Docker context and no competing exported Compose variables:
 
@@ -103,30 +137,13 @@ openssl x509 -in public-root.crt -noout -fingerprint -sha256
 
 If the certificate does not exist yet, wait for Caddy startup and retry the copy. Inspect startup status privately if it continues to fail. Before repeating the copy over an existing `public-root.crt`, explicitly confirm that replacing that public certificate is intended, or choose a fresh output filename.
 
-Copy **only** `root.crt`, named `public-root.crt` here. Never export the entire CA directory, `/data`, `root.key`, an intermediate private key, or `.env` to clients. The public certificate is not secret, but its authenticity is security-critical. Give it to clients in person (for example, operator-controlled removable media) or through an already authenticated channel such as an existing trusted corporate file service. Confirm the SHA-256 fingerprint with the operator independently, in person or over a separately authenticated channel. Do not fetch the initial certificate from this still-untrusted app and treat that as proof of identity.
-
-Installing a root CA grants substantial trust on a device. Install only the verified office root on authorized devices, and remove it when the office service is retired. Never disable certificate validation globally.
-
-### Desktop
-
-- **Windows:** Import the verified certificate using the certificate import wizard into **Trusted Root Certification Authorities** for the current user (or have IT manage device-wide trust). Confirm the certificate identity before approving.
-- **macOS:** Import it using **Keychain Access** into the appropriate login/system keychain, open the certificate's **Trust** settings, and explicitly trust it for SSL. Device-wide changes may require an administrator.
-- **Linux:** Have the administrator add it to the distribution's CA store using that distribution's documented procedure. There is no universal trust command for every desktop/browser combination.
-- **Firefox:** Depending on browser policy/platform, a separate CA import may be needed under **Settings → Privacy & Security → Certificates → View Certificates → Authorities**. Import the verified root and allow it to identify websites. Restart/reopen the browser if required.
-
-### Android
-
-Open **Settings → Security** (or **Security & privacy**) **→ Encryption & credentials → Install a certificate → CA certificate**, then select the verified `public-root.crt`. Menu names vary by vendor/Android version; installation may require a screen lock and explicit security confirmation. Managed devices may need IT approval. Use a browser that accepts user-installed CAs; not every app trusts them. Never work around failure by disabling TLS validation.
-
-### iPhone / iPad
-
-Open the verified `public-root.crt` received through the trusted transfer path. Install the downloaded profile under **Settings → General → VPN & Device Management** (or **Profile Downloaded**, depending on iOS). Then go to **Settings → General → About → Certificate Trust Settings** and enable **full trust** for this root certificate. Installing the profile alone is insufficient for manually installed roots. Managed-device policy may require IT assistance. See Apple's [manual certificate trust instructions](https://support.apple.com/en-us/102390).
+Copy **only** `root.crt`, named `public-root.crt` here. Never export the entire CA directory, `/data`, `root.key`, an intermediate private key, or `.env` to clients. Give it to clients in person or through an already authenticated channel, and confirm the SHA-256 fingerprint independently. The installation steps on the connection page apply to a manually distributed file as well.
 
 ### Complete setup
 
 On each client, reopen the exact configured HTTPS address, such as `https://192.168.1.50`. Confirm that the browser shows no certificate/name warning. The address must match `OFFICE_ADDRESS`; trusting the CA does not make a different IP/name valid.
 
-The app offers English and Bangla device-trust guidance on both desktop and mobile sign-in/setup screens. The existing protected bootstrap form requires the privately supplied `SETUP_TOKEN` to create the first administrator. After successful setup, sign in using the new account. The database records setup completion; changing the token, rerunning the installer, or restarting containers cannot reopen first-admin creation. Do not delete the database to recover an account; use the existing administrator reset flow.
+The sign-in and setup screens link to the device-connection page. The existing protected bootstrap form requires the privately supplied `SETUP_TOKEN` to create the first administrator. After successful setup, sign in using the new account. The database records setup completion; changing the token, rerunning the installer, or restarting containers cannot reopen first-admin creation. Do not delete the database to recover an account; use the existing administrator reset flow.
 
 ### Employee and staff PINs
 

@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite-plus';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
@@ -11,7 +12,11 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       injectRegister: false,
-      injectManifest: { globPatterns: ['**/*.{js,css,html,png,woff2}'] },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,woff2}'],
+        // The device-connection page runs over plain HTTP, outside the service worker's origin.
+        globIgnores: ['connect.html', 'assets/connect-*'],
+      },
       manifest: {
         id: '/',
         name: 'অফিস সেবা · Office Service',
@@ -35,6 +40,14 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      input: {
+        main: resolve(import.meta.dirname, 'index.html'),
+        connect: resolve(import.meta.dirname, 'connect.html'),
+      },
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,
