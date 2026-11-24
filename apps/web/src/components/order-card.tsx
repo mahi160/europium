@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { date, number } from '../i18n';
 import { Form } from './forms';
+import { OrderReasonDialog } from './order-reason-dialog';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { FieldDescription } from './ui/field';
@@ -12,11 +13,11 @@ import { FieldDescription } from './ui/field';
 export function OrderCard({ order, user, work = false, onError, onTransition }: { order: Order; user: PublicUser; work?: boolean; onError: (error: Error | null) => void; onTransition?: (action: 'accept' | 'deliver') => void }) {
   const { t } = useTranslation();
   const client = useQueryClient();
-  async function transition(action: 'accept' | 'deliver' | 'cancel') {
+  async function transition(action: 'accept' | 'deliver' | 'cancel' | 'reject', reason = '') {
     onError(null);
     try {
-      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'cancel' ? { reason: '' } : {});
-      if (action !== 'cancel') onTransition?.(action);
+      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'cancel' || action === 'reject' ? { reason } : {});
+      if (action === 'accept' || action === 'deliver') onTransition?.(action);
     } catch (cause) {
       onError(cause instanceof Error ? cause : new Error());
       throw cause;
@@ -43,6 +44,9 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
     {order.note && <p>{order.note}</p>}
     {order.reason && <p>{t('reason')}: {order.reason}</p>}
     {order.assignee && <FieldDescription>{t('assignee')}: {order.assignee.name}</FieldDescription>}
-    {action && <Form compact showSaved={false} title={label} submit={label} variant={action === 'cancel' ? 'secondary' : undefined} onSubmit={() => transition(action)}><></></Form>}
+    {action && <div className="flex flex-wrap items-center gap-3">
+      <Form compact showSaved={false} title={label} submit={label} variant={action === 'cancel' ? 'secondary' : undefined} onSubmit={() => transition(action)}><></></Form>
+      {action === 'accept' && (user.role === 'staff' || user.role === 'admin') && <OrderReasonDialog label={t('rejectOrder')} onSubmit={(reason) => transition('reject', reason)}/>}
+    </div>}
   </CardContent></Card></article>;
 }

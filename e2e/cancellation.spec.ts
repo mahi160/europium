@@ -90,5 +90,33 @@ test('an order accepted before cancellation shows its real status and a conflict
     await expect(employeeCard.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(cancel).toHaveCount(0);
     await expect(f.employee.getByRole('alert')).toContainText('Only pending orders can be cancelled.');
+    await expect(staffCard.getByRole('button', { name: 'Reject order', exact: true })).toHaveCount(0);
+  } finally { await f.close(); }
+});
+
+test('staff rejects a pending order with a reason visible to the employee', async ({ page, browser }) => {
+  const f = await office(page, browser);
+  try {
+    const { employeeCard, staffCard } = await placeOrder(f);
+    const reject = staffCard.getByRole('button', { name: 'Reject order', exact: true });
+    const dialog = f.staff.getByRole('dialog', { name: 'Reject order' });
+    const reason = dialog.getByLabel('Reason (required)', { exact: false });
+    await reject.focus();
+    await reject.press('Enter');
+    await expect(reason).toBeFocused();
+    await reason.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(reject).toBeFocused();
+    await reject.click();
+    await reason.fill('   ');
+    const submit = dialog.getByRole('button', { name: 'Reject order', exact: true });
+    await submit.click();
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await expect(employeeCard.getByText('Pending', { exact: true })).toBeVisible();
+    await reason.fill('The kitchen is closed.');
+    await submit.click();
+    await expect(staffCard).toHaveCount(0);
+    await expect(employeeCard.getByText('Rejected', { exact: true })).toBeVisible();
+    await expect(employeeCard).toContainText('The kitchen is closed.');
   } finally { await f.close(); }
 });
