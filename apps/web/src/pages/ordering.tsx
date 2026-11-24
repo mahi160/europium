@@ -10,6 +10,7 @@ import {
 import { api, ApiError } from '../api';
 import { draftFor } from '../draft';
 import { number } from '../i18n';
+import { cacheOrder, refreshOrders } from '../order-cache';
 import { OrderCard } from '../components/order-card';
 import { ErrorNotice, Field, Form, text } from '../components/forms';
 import { Button } from '../components/ui/button';
@@ -56,8 +57,9 @@ export function Ordering({ user }: { user: PublicUser }) {
       const payload = store.getState().attempt();
       const result = await api('/orders', orderResponseSchema, 'POST', payload);
       store.getState().clear();
-      await client.invalidateQueries({ queryKey: ['orders', user.id] });
+      await cacheOrder(client, user, result.order);
       setSubmittedId(result.order.id);
+      void refreshOrders(client, user.id);
     } catch (cause) {
       if (cause instanceof ApiError && ['VALIDATION_ERROR', 'ITEM_UNAVAILABLE'].includes(cause.code)) {
         store.getState().rejected();

@@ -96,6 +96,21 @@ test('an order accepted before cancellation shows its real status and a conflict
   } finally { await f.close(); }
 });
 
+test('a confirmed order action updates the card while list refresh is still pending', async ({ page, browser }) => {
+  const f = await office(page, browser);
+  let release = () => {};
+  try {
+    const { accept, staffCard } = await placeOrder(f);
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await f.staff.route('**/api/work/orders', async (route) => { await held; await route.continue(); });
+    const refetch = f.staff.waitForRequest('**/api/work/orders');
+    await accept.click();
+    await refetch;
+    await expect(staffCard.getByText('Accepted', { exact: true })).toBeVisible();
+    await expect(staffCard.getByRole('button', { name: 'Mark delivered' })).toBeEnabled();
+  } finally { release(); await f.close(); }
+});
+
 test('admin observes live while assigned staff returns an order for another staff member to deliver', async ({ page, browser }) => {
   const f = await office(page, browser);
   const otherContext = await browser.newContext();

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { date, number } from '../i18n';
+import { cacheOrder, refreshOrders } from '../order-cache';
 import { Form } from './forms';
 import { OrderReasonDialog } from './order-reason-dialog';
 import { Card, CardContent } from './ui/card';
@@ -16,16 +17,14 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
   async function transition(action: 'accept' | 'deliver' | 'cancel' | 'reject' | 'requeue', reason = '') {
     onError(null);
     try {
-      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'accept' || action === 'deliver' ? {} : { reason });
+      const result = await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'accept' || action === 'deliver' ? {} : { reason });
+      await cacheOrder(client, user, result.order);
       if (action === 'accept' || action === 'deliver') onTransition?.(action);
     } catch (cause) {
       onError(cause instanceof Error ? cause : new Error());
       throw cause;
     } finally {
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ['orders'] }),
-        client.invalidateQueries({ queryKey: ['work-orders'] }),
-      ]);
+      void refreshOrders(client, user.id);
     }
   }
   const requester = order.audit.find((entry) => entry.action === 'create')?.actor.name;
