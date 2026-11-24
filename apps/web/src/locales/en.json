@@ -148,6 +148,8 @@
   "yourOrder": "Your order",
   "placeOrder": "Place order",
   "sendOrder": "Send order ({{countText}})",
+  "reorderLast": "Same as last time: {{items}}",
+  "reorderSkipped": "Unavailable items from your last order will be skipped.",
   "retryOrder": "Retry same order",
   "chooseItems": "Add something from the menu.",
   "remove": "Remove",

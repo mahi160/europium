@@ -148,6 +148,8 @@
   "yourOrder": "আপনার অর্ডার",
   "placeOrder": "অর্ডার দিন",
   "sendOrder": "অর্ডার পাঠান ({{countText}})",
+  "reorderLast": "গতবারের মতো: {{items}}",
+  "reorderSkipped": "গতবারের অর্ডারে এখন পাওয়া যায় না এমন আইটেম বাদ যাবে।",
   "retryOrder": "একই অর্ডার আবার পাঠান",
   "chooseItems": "মেনু থেকে কিছু বেছে নিন।",
   "remove": "বাদ দিন",

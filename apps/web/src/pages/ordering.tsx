@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import {
-  menuCategorySchema, menuItemResponseSchema, menuResponseSchema, orderResponseSchema, ordersResponseSchema,
+  menuCategorySchema, menuItemResponseSchema, menuResponseSchema, orderResponseSchema, personalOrdersResponseSchema,
   type MenuItem, type PublicUser,
 } from '@office-service/shared';
 import { api, ApiError } from '../api';
@@ -32,7 +32,7 @@ export function Ordering({ user }: { user: PublicUser }) {
   const store = draftFor(user.id);
   const draft = useStore(store);
   const menu = useQuery({ queryKey: ['menu', user.id, user.role], queryFn: () => api('/menu', menuResponseSchema) });
-  const orders = useQuery({ queryKey: ['orders', user.id], queryFn: () => api('/orders', ordersResponseSchema) });
+  const orders = useQuery({ queryKey: ['orders', user.id], queryFn: () => api('/orders', personalOrdersResponseSchema) });
   const [busy, setBusy] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<Error | null>(null);
@@ -48,11 +48,16 @@ export function Ordering({ user }: { user: PublicUser }) {
   const selected = Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0);
   const total = selected.reduce((sum, [, quantity]) => sum + quantity, 0);
   const location = [user.floor && t('floor') + ' ' + user.floor, user.desk && t('desk') + ' ' + user.desk].filter(Boolean).join(' · ');
-  async function submit() {
+  const lastItems = user.role === 'employee' ? orders.data?.lastOrder?.items : undefined;
+  const repeatable = lastItems?.filter(({ itemId }) => items.some((item) => item.id === itemId && item.available)) ?? [];
+  const repeatLabel = lastItems && t('reorderLast', { items: (repeatable.length ? repeatable : lastItems)
+    .map(({ name, quantity }) => name + ' ×' + number(quantity)).join(', ') });
+  async function submit(quantities?: Record<string, number>) {
     if (!navigator.onLine || offline) throw new ApiError('NETWORK_ERROR');
     if (busy) return;
     setBusy(true);
     try {
+      if (quantities) store.getState().edit({ quantities, note: '' });
       const payload = store.getState().attempt();
       const result = await api('/orders', orderResponseSchema, 'POST', payload);
       store.getState().clear();
@@ -81,6 +86,12 @@ export function Ordering({ user }: { user: PublicUser }) {
     <p className="kiosk-delivery">{location ? <>{t('kiosk.delivery')} <strong>{location}</strong></> : t('kiosk.locationHelp')}</p>
     {menu.isPending && <p role="status">{t('loading')}</p>}
     <ErrorNotice error={menu.error} retry={() => void menu.refetch()}/>
+    {repeatLabel && <div className="mb-3 grid gap-2">
+      <Form title={repeatLabel} hideTitle showSaved={false} submit={repeatLabel} variant="secondary" submitClassName="order-repeat" disabled={offline || busy || frozen || selected.length > 0 || draft.note !== '' || repeatable.length === 0}
+        onSubmit={() => submit(Object.fromEntries(repeatable.map(({ itemId, quantity }) => [itemId, quantity])))}>
+        {repeatable.length < (lastItems?.length ?? 0) && menu.data && <FieldDescription>{t('reorderSkipped')}</FieldDescription>}
+      </Form>
+    </div>}
     <div className="kiosk-choices" role="group" aria-label={t('kiosk.selection')}>
       {items.map((item) => <Button key={item.id} variant="outline" disabled={busy || frozen || !item.available || draft.quantities[item.id] === Number.MAX_SAFE_INTEGER} onClick={() => changeQuantity(item.id, 1)}>
         {item.name}{!item.available && <span> · {t('unavailable')}</span>}
@@ -90,7 +101,7 @@ export function Ordering({ user }: { user: PublicUser }) {
     <p className="sr-only" role="status">{added}</p>
     <section className="kiosk-review" aria-label={t('kiosk.review')}>
       <h2>{t('yourOrder')}</h2>
-      <Form title={t('yourOrder')} hideTitle submit={frozen ? t('retryOrder') : t('sendOrder', { countText: number(total) })} submitClassName="order-send-bar" disabled={offline || (!selected.length && !frozen)} showSaved={false} onSubmit={submit}>
+      <Form title={t('yourOrder')} hideTitle submit={frozen ? t('retryOrder') : t('sendOrder', { countText: number(total) })} submitClassName="order-send-bar" disabled={offline || (!selected.length && !frozen)} showSaved={false} onSubmit={() => submit()}>
         {selected.length === 0 ? <FieldDescription>{t('chooseItems')}</FieldDescription> : <ul className="kiosk-order-lines">{selected.map(([id, quantity]) => {
           const item = items.find((item) => item.id === id);
           const name = item?.name ?? t('removedItem');

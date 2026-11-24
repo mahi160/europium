@@ -95,6 +95,22 @@ test('an order accepted before cancellation shows its real status and a conflict
   } finally { await f.close(); }
 });
 
+test('a delivered order can be sent again in one tap', async ({ page, browser }) => {
+  const f = await office(page, browser);
+  try {
+    const reorder = f.employee.getByRole('button', { name: 'Same as last time: ' + f.name + ' ×1', exact: true });
+    await expect(reorder).toHaveCount(0);
+    const { employeeCard, accept, staffCard } = await placeOrder(f);
+    await accept.click();
+    await staffCard.getByRole('button', { name: 'Mark delivered' }).click();
+    await expect(employeeCard.getByText('Delivered', { exact: true })).toBeVisible();
+    await reorder.click();
+    await expect(employeeCard).toHaveCount(2);
+    await expect(employeeCard.getByText('Pending', { exact: true })).toBeVisible();
+    await expect(staffCard.getByText('Pending', { exact: true })).toBeVisible();
+  } finally { await f.close(); }
+});
+
 test('a confirmed order action updates the card while list refresh is still pending', async ({ page, browser }) => {
   const f = await office(page, browser);
   let release = () => {};

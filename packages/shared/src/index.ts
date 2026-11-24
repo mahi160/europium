@@ -117,6 +117,7 @@ export const orderSchema = z.object({
 });
 export const orderResponseSchema = z.object({ order: orderSchema });
 export const ordersResponseSchema = z.object({ orders: z.array(orderSchema) });
+export const personalOrdersResponseSchema = ordersResponseSchema.extend({ lastOrder: orderSchema.nullable() });
 export type MenuInput = z.infer<typeof menuInputSchema>;
 export type MenuItem = z.infer<typeof menuItemSchema>;
 export type OrderPayload = z.infer<typeof orderPayloadSchema>;
@@ -127,6 +128,7 @@ export type MenuResponse = z.infer<typeof menuResponseSchema>;
 export type MenuItemResponse = z.infer<typeof menuItemResponseSchema>;
 export type OrderResponse = z.infer<typeof orderResponseSchema>;
 export type OrdersResponse = z.infer<typeof ordersResponseSchema>;
+export type PersonalOrdersResponse = z.infer<typeof personalOrdersResponseSchema>;
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 
 export type Role = z.infer<typeof roleSchema>;

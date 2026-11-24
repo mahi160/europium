@@ -95,8 +95,10 @@ export function registerOrders(app: Hono<AppEnv>, { db, sqlite }: ReturnType<typ
     const today = Math.floor((Date.now() + dhakaOffset) / 86400000) * 86400000 - dhakaOffset;
     const values = db.select().from(orders).where(and(eq(orders.userId, actor.userId), or(
       inArray(orders.status, ['PENDING', 'ACCEPTED']), gte(orders.updatedAt, today),
-    ))).orderBy(desc(orders.createdAt)).all();
-    return c.json({ orders: values.map(orderView) });
+    ))).orderBy(desc(orders.createdAt), desc(orders.id)).all();
+    const visible = values.map(orderView);
+    const last = db.select().from(orders).where(eq(orders.userId, actor.userId)).orderBy(desc(orders.createdAt), desc(orders.id)).get();
+    return c.json({ orders: visible, lastOrder: last ? visible.find((order) => order.id === last.id) ?? orderView(last) : null });
   });
   app.get('/api/orders/:id', async (c) => {
     const actor = await actorFor(c);

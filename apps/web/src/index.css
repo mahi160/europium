@@ -153,6 +153,7 @@ html:has(.kiosk-ordering) { scroll-padding-block-end: calc(4.5rem + env(safe-are
   border-block-start: 1px solid var(--border);
 }
 .order-send-bar > button { inline-size: min(100%, 24rem); }
+.order-repeat > button { max-inline-size: 100%; block-size: auto; white-space: normal; text-align: start; padding-block: 0.5rem; }
 .kiosk-confirmation { padding-block-start: 1rem; color: var(--primary); }
 .kiosk-history { display: grid; gap: 1.25rem; margin-block-start: 2.5rem; }
 .kiosk-order-history { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
