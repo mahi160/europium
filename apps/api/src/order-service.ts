@@ -60,25 +60,18 @@ export function createOrderService({ db, sqlite }: ReturnType<typeof openDatabas
       const current = freshActor(actor);
       const value = db.select().from(orders).where(eq(orders.id, id)).get();
       if (!value) throw new AppError('NOT_FOUND', 404);
-      const privileged = current.role === 'staff' || current.role === 'admin';
-      const assigned = privileged && (value.assigneeId === current.id || current.role === 'admin');
+      if (current.role === 'admin') throw new AppError('FORBIDDEN', 403);
       if (action === 'cancel') {
-        if (value.status === 'PENDING' && value.userId !== current.id) {
-          const previousAssignment = privileged && db.select({ id: orderHistory.id }).from(orderHistory)
-            .where(and(eq(orderHistory.orderId, id), eq(orderHistory.assigneeId, current.id))).get();
-          if (previousAssignment) throw new AppError('ORDER_CONFLICT', 409);
-          throw new AppError('NOT_FOUND', 404);
-        }
-        if (value.status !== 'PENDING' && !assigned && value.userId !== current.id) throw new AppError('FORBIDDEN', 403);
-        if (value.status === 'ACCEPTED' && !assigned) throw new AppError('ORDER_NOT_PENDING', 409);
+        if (value.userId !== current.id) throw new AppError(value.status === 'PENDING' ? 'NOT_FOUND' : 'FORBIDDEN', value.status === 'PENDING' ? 404 : 403);
       } else {
-        if (!privileged || (action === 'requeue' && current.role !== 'admin')) throw new AppError('FORBIDDEN', 403);
-        if (action === 'deliver' && value.status === 'ACCEPTED' && !assigned) throw new AppError('FORBIDDEN', 403);
+        if (current.role !== 'staff') throw new AppError('FORBIDDEN', 403);
+        if ((action === 'deliver' || action === 'requeue') && value.status === 'ACCEPTED' && value.assigneeId !== current.id) {
+          throw new AppError('FORBIDDEN', 403);
+        }
       }
-      const expected = action === 'accept' || action === 'reject' ? 'PENDING'
-        : action === 'cancel' && value.status === 'PENDING' ? 'PENDING' : 'ACCEPTED';
-      if (value.status !== expected) throw new AppError(action === 'cancel' && value.userId === current.id ? 'ORDER_NOT_PENDING' : 'ORDER_CONFLICT', 409);
-      if ((action === 'reject' || action === 'requeue' || (action === 'cancel' && expected === 'ACCEPTED')) && !reason) throw new AppError('VALIDATION_ERROR');
+      const expected = action === 'deliver' || action === 'requeue' ? 'ACCEPTED' : 'PENDING';
+      if (value.status !== expected) throw new AppError(action === 'cancel' ? 'ORDER_NOT_PENDING' : 'ORDER_CONFLICT', 409);
+      if (action === 'reject' && !reason) throw new AppError('VALIDATION_ERROR');
       const status = action === 'accept' ? 'ACCEPTED' : action === 'deliver' ? 'DELIVERED'
         : action === 'reject' ? 'REJECTED' : action === 'cancel' ? 'CANCELLED' : 'PENDING';
       const now = Date.now();

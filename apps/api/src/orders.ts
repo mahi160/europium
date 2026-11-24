@@ -3,7 +3,7 @@ import type { Hono } from 'hono';
 import { and, asc, desc, eq, gte, inArray, or } from 'drizzle-orm';
 import { z } from 'zod';
 import {
-  cancelOrderSchema, createOrderSchema, emptyCommandSchema, menuInputSchema, transitionReasonSchema,
+  cancelOrderSchema, createOrderSchema, emptyCommandSchema, menuInputSchema, requeueOrderSchema, transitionReasonSchema,
 } from '@office-service/shared';
 import { AppError, input, type AppEnv, type CommandSecurity } from './app';
 import type { openDatabase } from './database';
@@ -135,7 +135,8 @@ export function registerOrders(app: Hono<AppEnv>, { db, sqlite }: ReturnType<typ
       const actor = await actorFor(c);
       const id = identifier(c.req.param('id'));
       let reason: string | null = null;
-      if (action === 'reject' || action === 'requeue') reason = input(c, transitionReasonSchema).reason;
+      if (action === 'reject') reason = input(c, transitionReasonSchema).reason;
+      else if (action === 'requeue') reason = input(c, requeueOrderSchema).reason ?? null;
       else input(c, emptyCommandSchema);
       const order = service.transition(id, actor, action, reason);
       return c.json({ order });

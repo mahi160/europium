@@ -13,10 +13,10 @@ import { FieldDescription } from './ui/field';
 export function OrderCard({ order, user, work = false, onError, onTransition }: { order: Order; user: PublicUser; work?: boolean; onError: (error: Error | null) => void; onTransition?: (action: 'accept' | 'deliver') => void }) {
   const { t } = useTranslation();
   const client = useQueryClient();
-  async function transition(action: 'accept' | 'deliver' | 'cancel' | 'reject', reason = '') {
+  async function transition(action: 'accept' | 'deliver' | 'cancel' | 'reject' | 'requeue', reason = '') {
     onError(null);
     try {
-      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'cancel' || action === 'reject' ? { reason } : {});
+      await api('/orders/' + order.id + '/' + action, orderResponseSchema, 'POST', action === 'accept' || action === 'deliver' ? {} : { reason });
       if (action === 'accept' || action === 'deliver') onTransition?.(action);
     } catch (cause) {
       onError(cause instanceof Error ? cause : new Error());
@@ -29,10 +29,12 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
     }
   }
   const requester = order.audit.find((entry) => entry.action === 'create')?.actor.name;
-  const action = work && order.status === 'PENDING' ? 'accept'
-    : work && order.status === 'ACCEPTED' && (order.assignee?.id === user.id || user.role === 'admin') ? 'deliver'
-    : !work && user.role === 'employee' && order.userId === user.id && order.status === 'PENDING' ? 'cancel' : null;
-  const label = t(action === 'accept' ? 'acceptOrder' : action === 'cancel' ? 'cancelOrder' : 'completedQueue');
+  const staffWork = work && user.role === 'staff';
+  const canCancel = user.role !== 'admin' && order.userId === user.id && order.status === 'PENDING';
+  const action = staffWork && order.status === 'PENDING' ? 'accept'
+    : staffWork && order.status === 'ACCEPTED' && order.assignee?.id === user.id ? 'deliver' : null;
+  const label = t(action === 'accept' ? 'acceptOrder' : 'deliverOrder');
+  const cancelLabel = t('cancelOrder');
   return <article className="order-ticket" data-status={order.status} aria-label={t('orderAt', { time: date(order.createdAt) })}><Card><CardContent className="grid gap-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Badge variant="secondary">{t('statuses.' + order.status)}</Badge>
@@ -44,9 +46,11 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
     {order.note && <p>{order.note}</p>}
     {order.reason && <p>{t('reason')}: {order.reason}</p>}
     {order.assignee && <FieldDescription>{t('assignee')}: {order.assignee.name}</FieldDescription>}
-    {action && <div className="flex flex-wrap items-center gap-3">
-      <Form compact showSaved={false} title={label} submit={label} variant={action === 'cancel' ? 'secondary' : undefined} onSubmit={() => transition(action)}><></></Form>
-      {action === 'accept' && (user.role === 'staff' || user.role === 'admin') && <OrderReasonDialog label={t('rejectOrder')} onSubmit={(reason) => transition('reject', reason)}/>}
+    {(action || canCancel) && <div className="flex flex-wrap items-center gap-3">
+      {action && <Form compact showSaved={false} title={label} submit={label} onSubmit={() => transition(action)}><></></Form>}
+      {canCancel && <Form compact showSaved={false} title={cancelLabel} submit={cancelLabel} variant="secondary" onSubmit={() => transition('cancel')}><></></Form>}
+      {action === 'accept' && <OrderReasonDialog label={t('rejectOrder')} onSubmit={(reason) => transition('reject', reason)}/>}
+      {action === 'deliver' && <OrderReasonDialog label={t('requeueOrder')} variant="secondary" required={false} onSubmit={(reason) => transition('requeue', reason)}/>}
     </div>}
   </CardContent></Card></article>;
 }

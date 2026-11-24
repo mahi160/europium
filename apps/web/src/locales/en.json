@@ -183,6 +183,8 @@
   "rejectOrder": "Reject order",
   "requeueOrder": "Return to pending",
   "requiredReason": "Reason (required)",
+  "optionalReason": "Reason (optional)",
+  "activeOrders": "Active orders",
   "orderHistory": "Order history",
   "allStatuses": "All statuses",
   "allAssignees": "All assignees",

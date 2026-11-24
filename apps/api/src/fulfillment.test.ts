@@ -118,13 +118,13 @@ test('pending accept/cancel/reject races have one authoritative outcome and no l
   }
 });
 
-test('delivery, cancellation and requeue race against fresh accepted state', async () => {
+test('delivery and requeue race against fresh accepted state', async () => {
   const { backend, config, admin, staff, place, command } = await fixture();
   const other = createApp(config); resources.push(other.close);
-  for (const actions of [['deliver', 'cancel'], ['cancel', 'deliver'], ['deliver', 'requeue'], ['requeue', 'deliver'], ['cancel', 'requeue'], ['requeue', 'cancel']] as const) {
+  for (const actions of [['deliver', 'requeue'], ['requeue', 'deliver']] as const) {
     const pending = await place();
     await command(pending.id, 'accept', staff.cookie);
-    const responses = await Promise.all(actions.map((action, index) => request(index === 0 ? backend : other, '/orders/' + pending.id + '/' + action, 'POST', action === 'deliver' ? {} : { reason: 'কাজ পরিবর্তন' }, action === 'requeue' ? admin : staff.cookie)));
+    const responses = await Promise.all(actions.map((action, index) => request(index === 0 ? backend : other, '/orders/' + pending.id + '/' + action, 'POST', action === 'deliver' ? {} : { reason: 'কাজ পরিবর্তন' }, staff.cookie)));
     expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
     const value = orderResponseSchema.parse(await (await request(backend, '/orders/' + pending.id, 'GET', undefined, admin)).json()).order;
     expect(value.audit).toHaveLength(3);
@@ -141,6 +141,9 @@ test('permissions, reasons, private detail and personal ordering are independent
   expect(await list(staff.cookie, false)).toHaveLength(1);
   await failure(await request(backend, '/work/orders', 'GET', undefined, employee.cookie), 403, 'FORBIDDEN');
   await failure(await request(backend, '/work/orders'), 401, 'UNAUTHORIZED');
+  for (const action of ['accept', 'reject', 'cancel'] as const) {
+    await failure(await request(backend, '/orders/' + pending.id + '/' + action, 'POST', action === 'accept' ? {} : { reason: 'কারণ' }, admin), 403, 'FORBIDDEN');
+  }
   for (const action of ['accept', 'deliver', 'reject', 'requeue']) {
     await failure(await request(backend, '/orders/' + pending.id + '/' + action, 'POST', action === 'reject' || action === 'requeue' ? { reason: 'কারণ' } : {}, employee.cookie), 403, 'FORBIDDEN');
   }
@@ -157,22 +160,24 @@ test('permissions, reasons, private detail and personal ordering are independent
   }
   await failure(await request(backend, '/orders/' + pending.id + '/cancel', 'POST', { reason: '' }, employee.cookie), 409, 'ORDER_NOT_PENDING');
   for (const cookie of [staff.cookie, admin]) {
-    await failure(await request(backend, '/orders/' + pending.id + '/cancel', 'POST', { reason: ' ' }, cookie), 400, 'VALIDATION_ERROR');
+    await failure(await request(backend, '/orders/' + pending.id + '/cancel', 'POST', { reason: ' ' }, cookie), 403, 'FORBIDDEN');
   }
-  await failure(await request(backend, '/orders/' + pending.id + '/requeue', 'POST', { reason: '' }, admin), 400, 'VALIDATION_ERROR');
+  await failure(await request(backend, '/orders/' + pending.id + '/requeue', 'POST', {}, admin), 403, 'FORBIDDEN');
+  await failure(await request(backend, '/orders/' + pending.id + '/deliver', 'POST', {}, admin), 403, 'FORBIDDEN');
+  await failure(await request(backend, '/orders/' + pending.id + '/requeue', 'POST', { reason: 'x'.repeat(501) }, staff.cookie), 400, 'VALIDATION_ERROR');
   await failure(await request(backend, '/orders/' + pending.id + '/accept', 'POST', { assigneeId: second.id }, staff.cookie), 400, 'VALIDATION_ERROR');
-  const delivered = await command(pending.id, 'deliver', admin);
+  const delivered = await command(pending.id, 'deliver', staff.cookie);
   expect(delivered.status).toBe('DELIVERED');
   expect((await list(staff.cookie)).some((order) => order.id === pending.id)).toBe(true);
   expect((await list(second.cookie)).some((order) => order.id === pending.id)).toBe(false);
 });
 
 test('requeue clears assignment but preserves snapshots and subsequent whole-order fulfillment', async () => {
-  const { backend, admin, employee, staff, second, place, command } = await fixture();
+  const { backend, employee, staff, second, place, command } = await fixture();
   const pending = await place();
   const accepted = await command(pending.id, 'accept', staff.cookie);
   await request(backend, '/me', 'PATCH', { name: 'নতুন নাম' }, staff.cookie);
-  const requeued = await command(pending.id, 'requeue', admin, 'অন্য কর্মী প্রয়োজন');
+  const requeued = await command(pending.id, 'requeue', staff.cookie, 'অন্য কর্মী প্রয়োজন');
   expect(requeued).toMatchObject({ status: 'PENDING', assignee: null, acceptedAt: null, completedAt: null, reason: 'অন্য কর্মী প্রয়োজন', items: pending.items });
   expect(requeued.audit[1].actor.name).toBe(staff.name);
   expect(requeued.audit[1].assignee).toEqual(accepted.assignee);
@@ -189,7 +194,7 @@ test('requeue clears assignment but preserves snapshots and subsequent whole-ord
 });
 
 test('terminal orders are immutable and owner cancellation/rejection remain visible in history', async () => {
-  const { backend, admin, employee, staff, second, place, command, list } = await fixture();
+  const { backend, employee, staff, second, place, command, list } = await fixture();
   for (const terminal of ['DELIVERED', 'REJECTED', 'CANCELLED'] as const) {
     const pending = await place();
     const done = terminal === 'REJECTED' ? await command(pending.id, 'reject', second.cookie, 'চা শেষ')
@@ -198,7 +203,7 @@ test('terminal orders are immutable and owner cancellation/rejection remain visi
     expect(done.status).toBe(terminal);
     expect(done.audit.at(-1)?.reason).toBe(done.reason);
     for (const action of ['accept', 'deliver', 'reject', 'cancel', 'requeue']) {
-      await failure(await request(backend, '/orders/' + done.id + '/' + action, 'POST', ['accept', 'deliver'].includes(action) ? {} : { reason: 'পরিবর্তন' }, admin), 409, 'ORDER_CONFLICT');
+      await failure(await request(backend, '/orders/' + done.id + '/' + action, 'POST', ['accept', 'deliver'].includes(action) ? {} : { reason: 'পরিবর্তন' }, action === 'cancel' ? employee.cookie : staff.cookie), 409, action === 'cancel' ? 'ORDER_NOT_PENDING' : 'ORDER_CONFLICT');
     }
     const detail = orderResponseSchema.parse(await (await request(backend, '/orders/' + done.id, 'GET', undefined, employee.cookie)).json()).order;
     expect(detail).toEqual(done);
@@ -206,8 +211,10 @@ test('terminal orders are immutable and owner cancellation/rejection remain visi
   }
   const pending = await place();
   await command(pending.id, 'accept', staff.cookie);
-  const cancelled = await command(pending.id, 'cancel', staff.cookie, 'ডেস্ক বন্ধ');
-  expect(cancelled.audit.at(-1)).toMatchObject({ actor: { id: staff.id }, reason: 'ডেস্ক বন্ধ', assignee: { id: staff.id } });
+  const returned = await command(pending.id, 'requeue', staff.cookie);
+  expect(returned).toMatchObject({ status: 'PENDING', reason: null, assignee: null });
+  const cancelled = await command(pending.id, 'cancel', employee.cookie, '');
+  expect(cancelled.audit.at(-1)).toMatchObject({ actor: { id: employee.id }, reason: null, assignee: null });
 });
 
 test('queue is oldest first and a revoked session cannot persist a transition', async () => {

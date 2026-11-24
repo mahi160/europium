@@ -46,13 +46,18 @@ test('online backup during real order creation restores login, contents, status,
   expect(login.status).toBe(200);
   const cookie = login.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
   const menu = menuItemResponseSchema.parse(await (await request(backend, '/menu', { name: 'Tea', category: 'tea', unit: 'কাপ', available: true, archived: false }, cookie)).json()).item;
-  const place = async () => {
-    const response = await request(backend, '/orders', { idempotencyKey: randomUUID(), items: [{ itemId: menu.id, quantity: 2 }], note: 'Keep contents' }, cookie);
+  expect((await request(backend, '/users', { username: 'requester', password: '0007', name: 'Requester', role: 'employee', language: 'en', floor: '1', desk: 'A' }, cookie)).status).toBe(201);
+  const employeeLogin = await request(backend, '/auth/login', { username: 'requester', password: '0007' });
+  expect(employeeLogin.status).toBe(200);
+  const employeeCookie = employeeLogin.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
+  expect((await request(backend, '/auth/change-password', { currentPassword: '0007', newPassword: '0042' }, employeeCookie)).status).toBe(200);
+  const place = async (requester = cookie) => {
+    const response = await request(backend, '/orders', { idempotencyKey: randomUUID(), items: [{ itemId: menu.id, quantity: 2 }], note: 'Keep contents' }, requester);
     expect(response.status).toBe(201);
     return orderResponseSchema.parse(await response.json()).order;
   };
-  const order = await place();
-  const cancelled = await request(backend, `/orders/${order.id}/cancel`, { reason: 'Changed plans' }, cookie);
+  const order = await place(employeeCookie);
+  const cancelled = await request(backend, `/orders/${order.id}/cancel`, { reason: 'Changed plans' }, employeeCookie);
   expect(cancelled.status).toBe(200);
   const expected = orderResponseSchema.parse(await cancelled.json()).order;
   backend.sqlite.exec('CREATE TABLE backup_load (payload BLOB)');

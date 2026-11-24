@@ -130,7 +130,8 @@ test('all roles can place multiple personal orders; ownership and pending-only c
     expect(orderResponseSchema.parse(await response.json()).order).toEqual(mine);
     expect(ordersResponseSchema.parse(await (await request(backend, '/orders', 'GET', undefined, privileged)).json()).orders.map((order) => order.id)).not.toContain(mine.id);
   }
-  for (const other of [admin, staff.cookie, otherEmployee.cookie]) {
+  await failure(await request(backend, '/orders/' + mine.id + '/cancel', 'POST', { reason: '' }, admin), 403, 'FORBIDDEN');
+  for (const other of [staff.cookie, otherEmployee.cookie]) {
     await failure(await request(backend, '/orders/' + mine.id + '/cancel', 'POST', { reason: '' }, other), 404, 'NOT_FOUND');
   }
   const cancelled = await request(backend, '/orders/' + mine.id + '/cancel', 'POST', { reason: 'মিটিং শেষ' }, employee.cookie);

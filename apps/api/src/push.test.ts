@@ -148,7 +148,7 @@ test('reject and owner cancellation stop even the initial alert; requeue resets 
   const order = await f.place();
   f.boundary(async () => {
     await f.command(order.id, 'accept', f.staff.cookie);
-    await f.command(order.id, 'requeue', f.admin, 'অন্য কর্মী');
+    await f.command(order.id, 'requeue', f.staff.cookie, 'অন্য কর্মী');
   });
   await f.backend.push.tick(); expect(f.sent).toHaveLength(1);
   f.boundary(async () => {});
@@ -164,16 +164,13 @@ test('all employee transition pushes retain the event reason and recipient langu
   const delivered = await f.place(); await f.command(delivered.id, 'accept', f.staff.cookie);
   await f.command(delivered.id, 'deliver', f.staff.cookie);
   const rejected = await f.place(); await f.command(rejected.id, 'reject', f.staff.cookie, 'চা শেষ');
-  const cancelled = await f.place(); await f.command(cancelled.id, 'accept', f.staff.cookie);
-  await f.command(cancelled.id, 'cancel', f.admin, 'ডেস্ক বন্ধ');
   const requeued = await f.place(); await f.command(requeued.id, 'accept', f.staff.cookie);
-  await f.command(requeued.id, 'requeue', f.admin, 'আবার দিন');
+  await f.command(requeued.id, 'requeue', f.staff.cookie, 'আবার দিন');
   const own = await f.place(); await f.command(own.id, 'cancel', f.employee.cookie, 'নিজের বাতিল');
   await f.backend.push.tick();
-  expect(f.sent.map((value) => value.payload.kind)).toEqual(['accept', 'deliver', 'reject', 'accept', 'cancel', 'accept', 'requeue']);
+  expect(f.sent.map((value) => value.payload.kind)).toEqual(['accept', 'deliver', 'reject', 'accept', 'requeue']);
   expect(f.sent.every((value) => value.payload.language === 'bn' && value.payload.target.startsWith('/orders?order='))).toBe(true);
   expect(f.sent.find((value) => value.payload.kind === 'reject')?.payload.reason).toBe('চা শেষ');
-  expect(f.sent.find((value) => value.payload.kind === 'cancel')?.payload.reason).toBe('ডেস্ক বন্ধ');
   const last = f.sent.at(-1);
   if (!last) throw new Error('Missing requeue notification');
   expect(notificationText(last.payload).body).toBe('কারণ: আবার দিন');
@@ -230,7 +227,9 @@ test('deactivation, reset and expiry stop device sends, including revocation bet
   expect(f.backend.sqlite.prepare('SELECT * FROM push_subscription').all()).toEqual([]);
   f.advance(300000); await f.backend.push.tick(); expect(f.sent).toHaveLength(1);
   await f.subscribe(f.employee.cookie, 'owner');
-  await f.command(order.id, 'accept', f.admin);
+  const resetStaff = await f.login(f.staff.username, pin);
+  expect((await request(f.backend, '/auth/change-password', 'POST', { currentPassword: pin, newPassword: personalPin }, resetStaff)).status).toBe(200);
+  await f.command(order.id, 'accept', resetStaff);
   f.advance(31 * 24 * 3600000); await f.backend.push.tick(); expect(f.sent).toHaveLength(1);
 });
 

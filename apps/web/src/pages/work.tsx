@@ -12,7 +12,9 @@ export function Work({ user }: { user: PublicUser }) {
   const [feedback, setFeedback] = useState('');
   const result = useQuery({ queryKey: ['work-orders', user.id, user.role], queryFn: () => api('/work/orders', ordersResponseSchema) });
   const orders = (result.data?.orders ?? []).filter((order) => order.status === 'PENDING' || order.status === 'ACCEPTED');
-  return <section className="work-queue grid max-w-2xl gap-4" aria-label={t('workQueue')}>
+  const title = t(user.role === 'admin' ? 'activeOrders' : 'workQueue');
+  return <section className="work-queue grid max-w-2xl gap-4" aria-label={title}>
+    {user.role === 'admin' && <h2>{title}</h2>}
     <ErrorNotice error={error ?? result.error} retry={() => { setError(null); void result.refetch(); }}/>
     <p role="status">{feedback && t(feedback)}</p>
     {result.isPending && <p role="status">{t('loading')}</p>}

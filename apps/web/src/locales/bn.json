@@ -183,6 +183,8 @@
   "rejectOrder": "অর্ডার প্রত্যাখ্যান করুন",
   "requeueOrder": "আবার অপেক্ষমাণ করুন",
   "requiredReason": "কারণ (আবশ্যক)",
+  "optionalReason": "কারণ (ঐচ্ছিক)",
+  "activeOrders": "চলমান অর্ডার",
   "orderHistory": "অর্ডারের ইতিহাস",
   "allStatuses": "সব অবস্থা",
   "allAssignees": "সব দায়িত্বপ্রাপ্ত কর্মী",

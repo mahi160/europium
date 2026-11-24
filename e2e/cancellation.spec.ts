@@ -30,8 +30,8 @@ async function office(page: Page, browser: Browser) {
   try {
     const employee = await contexts[0].newPage();
     const staff = await contexts[1].newPage();
-    for (const [role, client] of [['employee', employee], ['staff', staff]] as const) {
-      const username = 'cancel_' + role + '_' + unique;
+    async function addPerson(role: 'employee' | 'staff', client: Page, suffix = '') {
+      const username = 'cancel_' + role + '_' + unique + suffix;
       const response = await page.request.post('/api/users', { headers, data: {
         name: username, username, password: temporaryPassword, role, language: 'en', floor: '3', desk: unique,
       } });
@@ -39,9 +39,11 @@ async function office(page: Page, browser: Browser) {
       await signIn(client, username, temporaryPassword);
       expect((await client.request.post('/api/auth/change-password', { headers, data: { currentPassword: temporaryPassword, newPassword: personalPassword } })).ok()).toBe(true);
     }
+    await addPerson('employee', employee);
+    await addPerson('staff', staff);
     await Promise.all([employee.goto('/'), staff.goto('/')]);
     await Promise.all([expect(employee.locator('[data-realtime="current"]')).toBeVisible(), expect(staff.locator('[data-realtime="current"]')).toBeVisible()]);
-    return { employee, staff, name, contexts, close: async () => { for (const context of contexts) await context.close(); } };
+    return { employee, staff, name, contexts, addPerson, close: async () => { for (const context of contexts) await context.close(); } };
   } catch (error) {
     for (const context of contexts) await context.close();
     throw error;
@@ -92,6 +94,36 @@ test('an order accepted before cancellation shows its real status and a conflict
     await expect(f.employee.getByRole('alert')).toContainText('Only pending orders can be cancelled.');
     await expect(staffCard.getByRole('button', { name: 'Reject order', exact: true })).toHaveCount(0);
   } finally { await f.close(); }
+});
+
+test('admin observes live while assigned staff returns an order for another staff member to deliver', async ({ page, browser }) => {
+  const f = await office(page, browser);
+  const otherContext = await browser.newContext();
+  try {
+    const second = await otherContext.newPage();
+    await f.addPerson('staff', second, '_2');
+    await Promise.all([page.goto('/admin'), second.goto('/')]);
+    const admin = page.getByRole('region', { name: 'Active orders' });
+    const adminCard = admin.getByRole('article').filter({ hasText: f.name });
+    const secondCard = second.getByRole('article').filter({ hasText: f.name });
+    const { employeeCard, accept, staffCard } = await placeOrder(f);
+    await expect(adminCard.getByText('Pending', { exact: true })).toBeVisible();
+    await expect(adminCard.getByRole('button')).toHaveCount(0);
+    await accept.click();
+    await expect(adminCard.getByText('Accepted', { exact: true })).toBeVisible();
+    await expect(adminCard.getByRole('button')).toHaveCount(0);
+    await expect(secondCard).toHaveCount(0);
+    await staffCard.getByRole('button', { name: 'Return to pending' }).click();
+    const dialog = f.staff.getByRole('dialog', { name: 'Return to pending' });
+    await dialog.getByLabel('Reason (optional)').fill('My shift has ended.');
+    await dialog.getByRole('button', { name: 'Return to pending' }).click();
+    await expect(employeeCard).toContainText('My shift has ended.');
+    await expect(adminCard.getByText('Pending', { exact: true })).toBeVisible();
+    await secondCard.getByRole('button', { name: 'Accept order' }).click();
+    await secondCard.getByRole('button', { name: 'Mark delivered' }).click();
+    await expect(employeeCard.getByText('Delivered', { exact: true })).toBeVisible();
+    await expect(adminCard).toHaveCount(0);
+  } finally { await otherContext.close(); await f.close(); }
 });
 
 test('staff rejects a pending order with a reason visible to the employee', async ({ page, browser }) => {

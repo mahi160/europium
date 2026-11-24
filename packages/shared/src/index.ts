@@ -82,6 +82,7 @@ export const orderPayloadSchema = z.strictObject({
 });
 export const createOrderSchema = orderPayloadSchema.extend({ idempotencyKey: z.uuid() });
 export const cancelOrderSchema = z.strictObject({ reason: z.string().trim().max(500) });
+export const requeueOrderSchema = z.strictObject({ reason: cancelOrderSchema.shape.reason.optional() });
 export const orderActions = ['create', 'accept', 'deliver', 'reject', 'cancel', 'requeue'] as const;
 export const orderActionSchema = z.enum(orderActions);
 export const transitionReasonSchema = z.strictObject({ reason: z.string().trim().min(1).max(500) });

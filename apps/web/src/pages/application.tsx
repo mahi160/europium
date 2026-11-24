@@ -101,6 +101,7 @@ export function Application() {
         {adminPage ? user.role === 'admin' ? <div className="grid items-start gap-8 md:grid-cols-2">
           <section className="grid min-w-0 gap-4" aria-label={t('users')}><h2>{t('users')}</h2><People current={user}/></section>
           <section className="grid min-w-0 gap-4" aria-label={t('menu')}><h2>{t('menu')}</h2><MenuManagement user={user}/></section>
+          <Work user={user}/>
         </div> : <p>{t('notAllowed')}</p>
         : user.role === 'staff' ? <Work user={user}/> : <Ordering user={user}/>}
       </main>
