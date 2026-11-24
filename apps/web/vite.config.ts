@@ -5,7 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
   plugins: [react(), tailwindcss(), VitePWA({
     strategies: 'injectManifest', srcDir: 'src', filename: 'sw.ts',
-    injectRegister: 'script',
+    injectRegister: false,
     injectManifest: { globPatterns: ['**/*.{js,css,html,png,woff2}'] },
     manifest: {
       id: '/', name: 'অফিস সেবা · Office Service', short_name: 'অফিস সেবা', lang: 'bn-BD',

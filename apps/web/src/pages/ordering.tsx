@@ -101,7 +101,7 @@ export function Ordering({ user }: { user: PublicUser }) {
     <footer className="kiosk-delivery"><p>{location ? <>{t('kiosk.delivery')} <strong>{location}</strong></> : t('kiosk.locationHelp')}</p><p>{t('kiosk.footer')}</p></footer>
     <section className="kiosk-review" ref={review} tabIndex={-1} aria-label={t('kiosk.review')}>
       <div className="kiosk-section-heading"><h2>{t('yourOrder')}</h2><span>{t('kiosk.count', { quantity: number(total) })}</span></div>
-      {selected.length > 0 || frozen ? <Form title={t('yourOrder')} hideTitle submit={t(frozen ? 'retryOrder' : 'placeOrder')} disabled={offline} showSaved={false} onSubmit={submit}>
+      {selected.length > 0 || frozen || draft.note !== '' ? <Form title={t('yourOrder')} hideTitle submit={t(frozen ? 'retryOrder' : 'placeOrder')} disabled={offline || (selected.length === 0 && !frozen)} showSaved={false} onSubmit={submit}>
         <ul className="kiosk-order-lines">{selected.map(([id, quantity]) => {
           const item = items.find((item) => item.id === id);
           const name = item?.name ?? t('removedItem');

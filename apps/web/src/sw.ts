@@ -6,8 +6,12 @@ import { notificationPayloadSchema, notificationText, safeOrderTarget } from '@o
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<PrecacheEntry | string> };
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') event.waitUntil(self.skipWaiting());
+});
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
 registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-  allowlist: [/^\/(?:orders|work|profile|users|menu)?(?:\?.*)?$/],
+  allowlist: [/^\/(?:orders|work|admin)?(?:\?.*)?$/],
 }));
 self.addEventListener('push', (event) => {
   event.waitUntil((async () => {

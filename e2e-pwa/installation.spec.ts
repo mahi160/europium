@@ -1,4 +1,7 @@
-import { createECDH, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { createECDH, createHash, randomUUID } from 'node:crypto';
+import { mkdtempSync, readFileSync, renameSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { z } from 'zod';
 import { menuItemResponseSchema, orderResponseSchema, publicUserSchema } from '@office-service/shared';
@@ -74,6 +77,72 @@ test('built manifest, real PNG icons, responsive shell and service-worker cache 
   await page.getByRole('button', { name: 'Install Office Service', exact: true }).click();
   await expect(instructions).toBeVisible();
 });
+
+for (const blocker of ['none', 'draft', 'dialog'] as const) {
+  test(`installed app updates with blocker: ${blocker}`, async ({ page }) => {
+    const f = await office(page);
+    await page.goto('/');
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+    const script = page.locator('script[type="module"][src]');
+    const previous = await script.getAttribute('src');
+    expect(previous).toBeTruthy();
+    const dialog = page.getByRole('dialog', { name: 'Change PIN' });
+    if (blocker === 'draft') {
+      await page.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.item.name, exact: true }).click();
+      await page.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
+      await page.getByLabel('Note (optional)', { exact: false }).fill('Keep this note');
+    } else if (blocker === 'dialog') {
+      await page.getByRole('button', { name: f.employee.name, exact: true }).click();
+      await page.getByRole('button', { name: 'Change PIN', exact: true }).click();
+      await expect(dialog).toBeVisible();
+    }
+    const dist = 'apps/web/dist';
+    const previousWorker = readFileSync(join(dist, 'sw.js'));
+    const release = mkdtempSync('apps/web/update-test-');
+    const backup = join(release, 'previous');
+    const next = join(process.cwd(), release, 'next');
+    let swapped = false;
+    try {
+      execFileSync('pnpm', ['--filter', '@office-service/web', 'exec', 'vp', 'build', '--outDir', next, '--minify', 'false']);
+      renameSync(dist, backup);
+      swapped = true;
+      renameSync(next, dist);
+      const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+      const worker = hash(await (await page.request.get('/sw.js')).body());
+      expect(worker).toBe(hash(readFileSync(join(dist, 'sw.js'))));
+      expect(worker).not.toBe(hash(previousWorker));
+      await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+      if (blocker !== 'none') {
+        const reload = page.getByRole('button', { name: 'Reload', exact: true });
+        await expect(page.getByText('Update ready.', { exact: false })).toBeVisible();
+        expect(await script.getAttribute('src')).toBe(previous);
+        if (blocker === 'draft') {
+          await expect(reload).toBeDisabled();
+          await page.getByRole('button', { name: 'Remove ' + f.item.name, exact: true }).click();
+          await expect(reload).toBeDisabled();
+          await page.getByLabel('Note (optional)', { exact: false }).clear();
+        } else {
+          await expect(dialog).toBeVisible();
+          await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+        }
+        await reload.click();
+      }
+      await expect(script).not.toHaveAttribute('src', previous ?? '');
+      const cached = await page.evaluate(async () => {
+        const urls = (await Promise.all((await caches.keys()).map(async (name) => (await caches.open(name)).keys()))).flat();
+        return urls.map((url) => new URL(url.url).pathname);
+      });
+      expect(cached).not.toContain(previous);
+      expect(cached).toContain(await script.getAttribute('src'));
+    } finally {
+      if (swapped) {
+        rmSync(dist, { recursive: true, force: true });
+        renameSync(backup, dist);
+      }
+      rmSync(release, { recursive: true, force: true });
+    }
+  });
+}
 
 test('permission is requested only by the explicit button and denied permission leaves staff work usable', async ({ page }) => {
   const f = await office(page);
