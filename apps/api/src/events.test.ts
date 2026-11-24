@@ -115,7 +115,7 @@ async function fixture() {
     return orderResponseSchema.parse(await response.json()).order;
   }
   async function command(id: string, action: string, cookie = staff.cookie) {
-    const response = await request(backend, '/orders/' + id + '/' + action, 'POST', { ...(['cancel', 'reject', 'requeue'].includes(action) ? { reason: 'private reason' } : {}) }, cookie);
+    const response = await request(backend, '/orders/' + id + '/' + action, 'POST', ['cancel', 'reject', 'requeue'].includes(action) ? { reason: 'private reason' } : {}, cookie);
     expect(response.status).toBe(200);
   }
   return { backend, config, admin, employee, stranger, staff, second, menu, item, payload, place, command, login };

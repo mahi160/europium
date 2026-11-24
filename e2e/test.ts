@@ -3,6 +3,8 @@ import { test as base } from '@playwright/test';
 
 export { expect } from '@playwright/test';
 export const test = base.extend<{ loginBudget: void }>({
+  // Playwright requires an object pattern for the fixtures argument.
+  // eslint-disable-next-line no-empty-pattern
   loginBudget: [async ({}, use, info) => {
     const path: unknown = info.config.metadata.database;
     if (typeof path !== 'string') throw new Error('Missing dedicated Playwright database');

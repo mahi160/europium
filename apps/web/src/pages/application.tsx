@@ -7,7 +7,7 @@ import { api, sessionResponse, setupResponse, successResponse, userResponse } fr
 import { applyLanguage } from '../i18n';
 import { Button, buttonVariants } from '../components/ui/button';
 import { Card, CardContent, CardHeader } from '../components/ui/card';
-import { Field as FieldRoot, FieldDescription, FieldLabel } from '../components/ui/field';
+import { FieldDescription, FieldLabel } from '../components/ui/field';
 import { NativeSelect, NativeSelectOption } from '../components/ui/native-select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
