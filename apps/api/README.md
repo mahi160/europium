@@ -13,20 +13,20 @@ Vite's development proxy forwards `/api` from port 5173 to port 3000. Use same-o
 
 All paths below are exact. Successful responses are JSON except the SSE stream; setup and user creation return 201, and the other routes in this table return 200.
 
-| Method | Path | Request type | Response type | Permission |
-| --- | --- | --- | --- | --- |
-| GET | /api/setup | None | SetupStatusResponse | Public |
-| POST | /api/setup | SetupInput | UserResponse | Operator token; uninitialized only |
-| POST | /api/auth/login | LoginInput | UserResponse | Public |
-| POST | /api/auth/logout | Empty object | SuccessResponse | Signed in, including temporary password |
-| GET | /api/auth/get-session | None | SessionResponse | Public; user is null without a valid session |
-| GET | /api/events | None | SSE: ready, heartbeat, change | Same-origin; signed in; password changed |
-| POST | /api/auth/change-password | ChangePasswordInput | UserResponse | Signed in, including temporary password |
-| PATCH | /api/me | UpdateProfileInput | UserResponse | Signed in; password changed |
-| GET | /api/users | None | UsersResponse | Administrator; password changed |
-| POST | /api/users | CreateUserInput | UserResponse | Administrator; password changed |
-| PATCH | /api/users/:id | UpdateUserInput | UserResponse | Administrator; password changed |
-| POST | /api/users/:id/reset-password | ResetPasswordInput | SuccessResponse | Administrator; password changed |
+| Method | Path                          | Request type        | Response type                 | Permission                                   |
+| ------ | ----------------------------- | ------------------- | ----------------------------- | -------------------------------------------- |
+| GET    | /api/setup                    | None                | SetupStatusResponse           | Public                                       |
+| POST   | /api/setup                    | SetupInput          | UserResponse                  | Operator token; uninitialized only           |
+| POST   | /api/auth/login               | LoginInput          | UserResponse                  | Public                                       |
+| POST   | /api/auth/logout              | Empty object        | SuccessResponse               | Signed in, including temporary password      |
+| GET    | /api/auth/get-session         | None                | SessionResponse               | Public; user is null without a valid session |
+| GET    | /api/events                   | None                | SSE: ready, heartbeat, change | Same-origin; signed in; password changed     |
+| POST   | /api/auth/change-password     | ChangePasswordInput | UserResponse                  | Signed in, including temporary password      |
+| PATCH  | /api/me                       | UpdateProfileInput  | UserResponse                  | Signed in; password changed                  |
+| GET    | /api/users                    | None                | UsersResponse                 | Administrator; password changed              |
+| POST   | /api/users                    | CreateUserInput     | UserResponse                  | Administrator; password changed              |
+| PATCH  | /api/users/:id                | UpdateUserInput     | UserResponse                  | Administrator; password changed              |
+| POST   | /api/users/:id/reset-password | ResetPasswordInput  | SuccessResponse               | Administrator; password changed              |
 
 Setup does not sign the administrator in. Log in afterwards. Login sets an HttpOnly, SameSite=Lax session cookie (Secure with an HTTPS origin). Session tokens and synthetic emails are never returned in JSON.
 
@@ -97,11 +97,11 @@ Optional environment configuration:
 
 All three must be valid and consistent. Missing/inconsistent configuration disables notifications only; login, ordering and staff work remain available, and Profile explains the unavailable state. The API never returns the private key, session tokens or subscription records. Do not log push errors: provider errors can contain endpoints or payloads. The server logs only a generic scheduling failure.
 
-| Method | Path | Contract |
-| --- | --- | --- |
-| GET | /api/push/config | Authenticated; `{ publicKey: string \| null }` |
-| POST | /api/push/subscription | Authenticated, changed password; `{ endpoint, keys: { p256dh, auth } }`; `{ success: true }` |
-| DELETE | /api/push/subscription | Same permissions; `{ endpoint }`; deletes only the current session's binding |
+| Method | Path                   | Contract                                                                                     |
+| ------ | ---------------------- | -------------------------------------------------------------------------------------------- |
+| GET    | /api/push/config       | Authenticated; `{ publicKey: string \| null }`                                               |
+| POST   | /api/push/subscription | Authenticated, changed password; `{ endpoint, keys: { p256dh, auth } }`; `{ success: true }` |
+| DELETE | /api/push/subscription | Same permissions; `{ endpoint }`; deletes only the current session's binding                 |
 
 Subscriptions are unique by endpoint and bound to the current user and database session. Re-registering a device safely replaces its previous account/session binding; the old session cannot delete the new binding. An already-approved browser subscription is rebound after sign-in without requesting permission again. Profile's explicit button is the only permission request or new browser subscription path. Logout cascades the current session's subscriptions; reset/deactivation cascade all revoked sessions, and password change retains only the current session. Expired, inactive, temporary-password and demoted staff recipients are rechecked before each external send. Already accepted external pushes cannot be recalled after a status change, logout or account switch.
 

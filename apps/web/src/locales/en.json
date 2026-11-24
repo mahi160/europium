@@ -139,7 +139,14 @@
   "setupIosHelp": "Open the verified public-root.crt, then install the downloaded profile in Settings → General → VPN & Device Management. Next open Settings → General → About → Certificate Trust Settings and enable full trust for this root certificate. Installing the profile alone is insufficient.",
   "setupVerify": "Reopen the exact HTTPS address supplied by the operator and confirm there is no certificate warning. Only then use the privately supplied setup token to create the first administrator. Completed installations show sign-in instead; setup cannot be reopened.",
   "setupLanOnly": "Use the office LAN or Wi-Fi. This does not provide remote access. A hostname must already resolve on each client through office DNS; changing the server’s hosts file does not configure phones. Ask the operator to reserve the server’s LAN address.",
-  "realtime": {"connecting":"Connecting… Displayed data may be out of date.","disconnected":"Live updates disconnected. Displayed data may be out of date.","offline":"Offline. Displayed data may be out of date. Orders cannot be sent.","refreshing":"Refreshing authoritative data… Displayed data may be out of date.","current":"Live","suspended":"Live updates paused while the app is in the background. Displayed data may be out of date."},
+  "realtime": {
+    "connecting": "Connecting… Displayed data may be out of date.",
+    "disconnected": "Live updates disconnected. Displayed data may be out of date.",
+    "offline": "Offline. Displayed data may be out of date. Orders cannot be sent.",
+    "refreshing": "Refreshing authoritative data… Displayed data may be out of date.",
+    "current": "Live",
+    "suspended": "Live updates paused while the app is in the background. Displayed data may be out of date."
+  },
   "status": "Status",
   "refreshments": "Today's refreshments",
   "unavailable": "Unavailable",
@@ -175,8 +182,14 @@
   "category": "Category",
   "banglaUnit": "Bangla unit (কাপ, গ্লাস, প্যাকেট)",
   "archiveItem": "Archive refreshment",
-  "categories": {"tea":"Tea","coffee":"Coffee","water":"Water","snack":"Snacks"},
-  "statuses": {"PENDING":"Pending","ACCEPTED":"Accepted","DELIVERED":"Delivered","REJECTED":"Rejected","CANCELLED":"Cancelled"},
+  "categories": { "tea": "Tea", "coffee": "Coffee", "water": "Water", "snack": "Snacks" },
+  "statuses": {
+    "PENDING": "Pending",
+    "ACCEPTED": "Accepted",
+    "DELIVERED": "Delivered",
+    "REJECTED": "Rejected",
+    "CANCELLED": "Cancelled"
+  },
   "workQueue": "Oldest requests first",
   "allOfficeOrders": "All office orders",
   "waitingMinutes": "Waiting {{minutes}} min",
@@ -203,7 +216,14 @@
   "emptyQueue": "No orders in this view.",
   "claimedBy": "{{acceptedBy}} accepted {{requestedBy}}’s request.",
   "dismiss": "Dismiss",
-  "orderActions": {"create":"Order created","accept":"Order accepted","deliver":"Order delivered","reject":"Order rejected","cancel":"Order cancelled","requeue":"Returned to pending"},
+  "orderActions": {
+    "create": "Order created",
+    "accept": "Order accepted",
+    "deliver": "Order delivered",
+    "reject": "Order rejected",
+    "cancel": "Order cancelled",
+    "requeue": "Returned to pending"
+  },
   "pwaTitle": "Install and notifications",
   "pwaUpdateReady": "Update ready.",
   "pwaUpdateDraft": "Update ready. Send or clear your draft before reloading.",

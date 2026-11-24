@@ -6,8 +6,12 @@ function deviceStorage() {
   const values = new Map<string, string>();
   return {
     getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => { values.set(key, value); },
-    removeItem: (key: string) => { values.delete(key); },
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
   };
 }
 test('drafts persist per user and never leak between users', () => {
@@ -20,7 +24,10 @@ test('drafts persist per user and never leak between users', () => {
   second.getState().edit({ note: 'অন্য ব্যবহারকারী' });
   const reload = createDraftStore('first', storage);
   expect(reload.getState()).toMatchObject({ quantities: { [itemId]: 2 }, note: 'চিনি ছাড়া' });
-  expect(reload.getState().attempt()).toMatchObject({ items: [{ itemId, quantity: 2 }], note: 'চিনি ছাড়া' });
+  expect(reload.getState().attempt()).toMatchObject({
+    items: [{ itemId, quantity: 2 }],
+    note: 'চিনি ছাড়া',
+  });
   expect(createDraftStore('second', storage).getState().note).toBe('অন্য ব্যবহারকারী');
 });
 
@@ -35,7 +42,11 @@ test('ambiguous outcomes freeze the attempted payload and UUID across reload', (
   attempted.items[0].quantity = 99;
   const reload = createDraftStore('user', storage);
   const retry = reload.getState().attempt();
-  expect(retry).toEqual({ idempotencyKey: attempted.idempotencyKey, items: [{ itemId, quantity: 1 }], note: '' });
+  expect(retry).toEqual({
+    idempotencyKey: attempted.idempotencyKey,
+    items: [{ itemId, quantity: 1 }],
+    note: '',
+  });
   expect(first.getState().attempt()).toEqual(retry);
   expect(reload.getState()).toMatchObject({ note: '', quantities: { [itemId]: 1 } });
 });
@@ -52,7 +63,11 @@ test('confirmed rejection permits editing and a new key; confirmed commit clears
   expect(next.idempotencyKey).not.toBe(first.idempotencyKey);
   expect(next.note).toBe('new request');
   store.getState().clear();
-  expect(createDraftStore('user', storage).getState()).toMatchObject({ quantities: {}, note: '', attempted: null });
+  expect(createDraftStore('user', storage).getState()).toMatchObject({
+    quantities: {},
+    note: '',
+    attempted: null,
+  });
   store.persist.clearStorage();
   expect(storage.getItem('office-draft:user')).toBeNull();
 });
@@ -85,6 +100,15 @@ test('invalid drafts cannot become requests and corrupt device storage cannot hy
   expect(store.getState().attempted).toBeNull();
   store.getState().edit({ quantities: { [randomUUID()]: 1 }, note: 'x'.repeat(501) });
   expect(() => store.getState().attempt()).toThrow();
-  storage.setItem('office-draft:user', JSON.stringify({ state: { quantities: { bad: -1 }, attempted: { idempotencyKey: 'bad' } }, version: 0 }));
-  expect(createDraftStore('user', storage).getState()).toMatchObject({ quantities: {}, attempted: null });
+  storage.setItem(
+    'office-draft:user',
+    JSON.stringify({
+      state: { quantities: { bad: -1 }, attempted: { idempotencyKey: 'bad' } },
+      version: 0,
+    }),
+  );
+  expect(createDraftStore('user', storage).getState()).toMatchObject({
+    quantities: {},
+    attempted: null,
+  });
 });

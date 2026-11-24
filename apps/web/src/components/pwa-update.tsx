@@ -10,11 +10,19 @@ const noDraftSubscription = () => () => {};
 
 export function PwaUpdate() {
   const { t } = useTranslation();
-  const { data: session } = useQuery({ queryKey: ['session'], queryFn: () => api('/auth/get-session', sessionResponse) });
+  const { data: session } = useQuery({
+    queryKey: ['session'],
+    queryFn: () => api('/auth/get-session', sessionResponse),
+  });
   const store = session?.user ? draftFor(session.user.id) : null;
   const hasDraft = () => {
     const draft = store?.getState();
-    return !!draft && (draft.attempted !== null || draft.note !== '' || Object.values(draft.quantities).some((quantity) => quantity > 0));
+    return (
+      !!draft &&
+      (draft.attempted !== null ||
+        draft.note !== '' ||
+        Object.values(draft.quantities).some((quantity) => quantity > 0))
+    );
   };
   const dirty = useSyncExternalStore(store?.subscribe ?? noDraftSubscription, hasDraft);
   const offline = useOffline();
@@ -31,8 +39,12 @@ export function PwaUpdate() {
     if (update === 'active') window.location.reload();
     else waiting.current?.postMessage('SKIP_WAITING');
   }
-  const applyAutomaticUpdate = useEffectEvent(() => { if (update && !held) applyUpdate(); });
-  useEffect(() => { applyAutomaticUpdate(); }, [update, session, held, offline]);
+  const applyAutomaticUpdate = useEffectEvent(() => {
+    if (update && !held) applyUpdate();
+  });
+  useEffect(() => {
+    applyAutomaticUpdate();
+  }, [update, session, held, offline]);
 
   useEffect(() => {
     const workers = navigator.serviceWorker;
@@ -43,7 +55,8 @@ export function PwaUpdate() {
     let checking = false;
     const installed = () => {
       if (!controller) return;
-      const worker = registration?.waiting ?? (installing?.state === 'installed' ? installing : null);
+      const worker =
+        registration?.waiting ?? (installing?.state === 'installed' ? installing : null);
       if (!worker) return;
       waiting.current = worker;
       setUpdate((current) => current ?? 'waiting');
@@ -55,25 +68,36 @@ export function PwaUpdate() {
       installed();
     };
     const changed = () => {
-      if (controller && workers.controller && controller !== workers.controller) setUpdate('active');
+      if (controller && workers.controller && controller !== workers.controller)
+        setUpdate('active');
       controller = workers.controller;
     };
     const check = () => {
       if (!registration || checking || document.hidden || !navigator.onLine) return;
       checking = true;
-      void registration.update().catch(() => {}).finally(() => { checking = false; });
+      void registration
+        .update()
+        .catch(() => {})
+        .finally(() => {
+          checking = false;
+        });
     };
-    const restored = (event: PageTransitionEvent) => { if (event.persisted) check(); };
+    const restored = (event: PageTransitionEvent) => {
+      if (event.persisted) check();
+    };
     workers.addEventListener('controllerchange', changed);
     document.addEventListener('visibilitychange', check);
     window.addEventListener('pageshow', restored);
-    void workers.register('/sw.js').then((result) => {
-      if (!active) return;
-      registration = result;
-      result.addEventListener('updatefound', watch);
-      watch();
-      check();
-    }).catch(() => {});
+    void workers
+      .register('/sw.js')
+      .then((result) => {
+        if (!active) return;
+        registration = result;
+        result.addEventListener('updatefound', watch);
+        watch();
+        check();
+      })
+      .catch(() => {});
     return () => {
       active = false;
       registration?.removeEventListener('updatefound', watch);
@@ -85,8 +109,20 @@ export function PwaUpdate() {
   }, []);
 
   if (!held) return null;
-  return <aside className="flex flex-wrap items-center gap-2 border-b bg-muted px-4 py-2">
-    <p role="status">{t(dirty ? 'pwaUpdateDraft' : 'pwaUpdateReady')}</p>
-    <Button type="button" variant="secondary" disabled={dirty || offline} onClick={() => { setHeld(false); applyUpdate(); }}>{t('pwaReload')}</Button>
-  </aside>;
+  return (
+    <aside className="flex flex-wrap items-center gap-2 border-b bg-muted px-4 py-2">
+      <p role="status">{t(dirty ? 'pwaUpdateDraft' : 'pwaUpdateReady')}</p>
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={dirty || offline}
+        onClick={() => {
+          setHeld(false);
+          applyUpdate();
+        }}
+      >
+        {t('pwaReload')}
+      </Button>
+    </aside>
+  );
 }

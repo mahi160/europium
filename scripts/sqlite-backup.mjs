@@ -13,11 +13,17 @@ try {
   await sqlite.backup(path);
   sqlite.close();
   sqlite = new Database(path, { readonly: true });
-  if (sqlite.pragma('integrity_check', { simple: true }) !== 'ok' || sqlite.pragma('foreign_key_check').length) throw new Error();
+  if (
+    sqlite.pragma('integrity_check', { simple: true }) !== 'ok' ||
+    sqlite.pragma('foreign_key_check').length
+  )
+    throw new Error();
   sqlite.close();
   await pipeline(createReadStream(path), process.stdout);
 } catch {
-  process.stderr.write('SQLite online backup failed; retry after checking storage and API availability.\n');
+  process.stderr.write(
+    'SQLite online backup failed; retry after checking storage and API availability.\n',
+  );
   process.exitCode = 1;
 } finally {
   if (sqlite?.open) sqlite.close();

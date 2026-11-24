@@ -138,11 +138,11 @@ PINs have only 10,000 combinations and are weaker than long passwords. Keep trus
 
 The fixed Compose project is `office-service`. Its named volumes are:
 
-| Volume | Contents |
-| --- | --- |
-| `office-service_app-data` | SQLite database, WAL, and related persistent app state |
-| `office-service_caddy-data` | CA identity, private keys, certificates, and renewal state |
-| `office-service_caddy-config` | Caddy persisted configuration |
+| Volume                        | Contents                                                   |
+| ----------------------------- | ---------------------------------------------------------- |
+| `office-service_app-data`     | SQLite database, WAL, and related persistent app state     |
+| `office-service_caddy-data`   | CA identity, private keys, certificates, and renewal state |
+| `office-service_caddy-config` | Caddy persisted configuration                              |
 
 Keep all three, the source/deployment artifacts, and the original protected `.env`. The API runs as the image's non-root `node` user; Docker initializes a new database volume from the image's node-owned `/data` directory. Caddy protects its generated private-key files; restrict access to the Docker daemon, underlying volume storage, and backups. Anyone with Docker/host-administrator access can read them. Do not distribute Caddy storage to clients. Losing it can create a new CA identity and require every client to trust a different root. A container restart must retain the same root fingerprint.
 

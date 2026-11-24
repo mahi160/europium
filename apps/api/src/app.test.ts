@@ -5,7 +5,13 @@ import { afterEach, describe, expect, test } from 'vite-plus/test';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import {
-  apiErrorSchema, menuResponseSchema, orderResponseSchema, ordersResponseSchema, publicUserSchema, type CreateUserInput, type PublicUser,
+  apiErrorSchema,
+  menuResponseSchema,
+  orderResponseSchema,
+  ordersResponseSchema,
+  publicUserSchema,
+  type CreateUserInput,
+  type PublicUser,
 } from '@office-service/shared';
 import { createApp } from './app';
 import { session, user } from './schema';
@@ -17,7 +23,13 @@ const newPassword = 'replacement-password-456';
 const profile = { name: 'প্রশাসক', language: 'bn', floor: '৩', desk: 'A-12' } as const;
 const pin = '1234';
 const newPin = '5678';
-const createdUser = { ...profile, name: 'Employee', username: 'employee', password: pin, role: 'employee' } as const;
+const createdUser = {
+  ...profile,
+  name: 'Employee',
+  username: 'employee',
+  password: pin,
+  role: 'employee',
+} as const;
 const userResponseSchema = z.object({ user: publicUserSchema });
 const sessionResponseSchema = z.object({ user: publicUserSchema.nullable() });
 const resources: Array<() => void> = [];
@@ -40,13 +52,22 @@ function fixture() {
   return { ...backend, config };
 }
 
-function request(backend: ReturnType<typeof createApp>, path: string, method = 'GET', body?: unknown, cookie?: string, requestOrigin: string | null = origin) {
+function request(
+  backend: ReturnType<typeof createApp>,
+  path: string,
+  method = 'GET',
+  body?: unknown,
+  cookie?: string,
+  requestOrigin: string | null = origin,
+) {
   const headers = new Headers();
   if (requestOrigin !== null) headers.set('Origin', requestOrigin);
   if (cookie) headers.set('Cookie', cookie);
   if (method !== 'GET') headers.set('Content-Type', 'application/json');
   return backend.app.request(path, {
-    method, headers, ...(method === 'GET' ? {} : { body: JSON.stringify(body ?? {}) }),
+    method,
+    headers,
+    ...(method === 'GET' ? {} : { body: JSON.stringify(body ?? {}) }),
   });
 }
 
@@ -57,14 +78,20 @@ async function errorCode(response: Response, status: number, code: string) {
 
 async function initialize(backend: ReturnType<typeof createApp>) {
   const response = await request(backend, '/api/setup', 'POST', {
-    ...profile, username: 'admin', password, setupToken: token,
+    ...profile,
+    username: 'admin',
+    password,
+    setupToken: token,
   });
   expect(response.status).toBe(201);
   return userResponseSchema.parse(await response.json()).user;
 }
 
 async function login(backend: ReturnType<typeof createApp>, username = 'admin', secret = password) {
-  const response = await request(backend, '/api/auth/login', 'POST', { username, password: secret });
+  const response = await request(backend, '/api/auth/login', 'POST', {
+    username,
+    password: secret,
+  });
   expect(response.status).toBe(200);
   const value = userResponseSchema.parse(await response.json()).user;
   const cookies = response.headers.getSetCookie();
@@ -73,8 +100,18 @@ async function login(backend: ReturnType<typeof createApp>, username = 'admin', 
   return { cookie, user: value, cookies };
 }
 
-async function createUser(backend: ReturnType<typeof createApp>, cookie: string, fields: Partial<CreateUserInput> = {}): Promise<PublicUser> {
-  const response = await request(backend, '/api/users', 'POST', { ...createdUser, ...fields }, cookie);
+async function createUser(
+  backend: ReturnType<typeof createApp>,
+  cookie: string,
+  fields: Partial<CreateUserInput> = {},
+): Promise<PublicUser> {
+  const response = await request(
+    backend,
+    '/api/users',
+    'POST',
+    { ...createdUser, ...fields },
+    cookie,
+  );
   expect(response.status).toBe(201);
   return userResponseSchema.parse(await response.json()).user;
 }
@@ -83,26 +120,63 @@ describe('setup and authentication', () => {
   test('requires an operator token, initializes once, and returns only the public user', async () => {
     const backend = fixture();
     expect(await (await request(backend, '/api/setup')).json()).toEqual({ setupRequired: true });
-    await errorCode(await request(backend, '/api/setup', 'POST', {
-      ...profile, username: 'admin', password, setupToken: 'x'.repeat(40),
-    }), 403, 'INVALID_SETUP_TOKEN');
+    await errorCode(
+      await request(backend, '/api/setup', 'POST', {
+        ...profile,
+        username: 'admin',
+        password,
+        setupToken: 'x'.repeat(40),
+      }),
+      403,
+      'INVALID_SETUP_TOKEN',
+    );
     const initial = await initialize(backend);
-    expect(initial).toMatchObject({ role: 'admin', isActive: true, mustChangePassword: false, ...profile });
-    expect(Object.keys(initial).sort()).toEqual(['desk', 'floor', 'id', 'isActive', 'language', 'mustChangePassword', 'name', 'role', 'username'].sort());
+    expect(initial).toMatchObject({
+      role: 'admin',
+      isActive: true,
+      mustChangePassword: false,
+      ...profile,
+    });
+    expect(Object.keys(initial).sort()).toEqual(
+      [
+        'desk',
+        'floor',
+        'id',
+        'isActive',
+        'language',
+        'mustChangePassword',
+        'name',
+        'role',
+        'username',
+      ].sort(),
+    );
     expect(await (await request(backend, '/api/setup')).json()).toEqual({ setupRequired: false });
-    await errorCode(await request(backend, '/api/setup', 'POST', {
-      ...profile, username: 'another_admin', password, setupToken: token,
-    }), 409, 'SETUP_COMPLETE');
+    await errorCode(
+      await request(backend, '/api/setup', 'POST', {
+        ...profile,
+        username: 'another_admin',
+        password,
+        setupToken: token,
+      }),
+      409,
+      'SETUP_COMPLETE',
+    );
   });
 
   test('concurrent setup through independent SQLite connections creates exactly one complete administrator', async () => {
     const first = fixture();
     const second = createApp(first.config);
     resources.push(second.close);
-    const responses = await Promise.all([first, second].map((backend, index) =>
-      request(backend, '/api/setup', 'POST', {
-        ...profile, username: 'admin_' + index, password, setupToken: token,
-      })));
+    const responses = await Promise.all(
+      [first, second].map((backend, index) =>
+        request(backend, '/api/setup', 'POST', {
+          ...profile,
+          username: 'admin_' + index,
+          password,
+          setupToken: token,
+        }),
+      ),
+    );
     expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
     expect(first.db.select().from(user).all()).toHaveLength(1);
     const winner = first.db.select().from(user).get();
@@ -114,7 +188,11 @@ describe('setup and authentication', () => {
   test('login is username-only, sessions are durable for 30 days, and logout revokes only the current device', async () => {
     const backend = fixture();
     await initialize(backend);
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'admin', password: 'wrong' }), 401, 'INVALID_CREDENTIALS');
+    await errorCode(
+      await request(backend, '/api/auth/login', 'POST', { username: 'admin', password: 'wrong' }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
     const first = await login(backend);
     const second = await login(backend);
     const sessions = backend.db.select().from(session).all();
@@ -128,18 +206,41 @@ describe('setup and authentication', () => {
     expect(first.cookies.join(';')).toMatch(/SameSite=Lax/i);
     const reopened = createApp(backend.config);
     resources.push(reopened.close);
-    expect(sessionResponseSchema.parse(await (await request(reopened, '/api/auth/get-session', 'GET', undefined, first.cookie)).json()).user?.username).toBe('admin');
+    expect(
+      sessionResponseSchema.parse(
+        await (
+          await request(reopened, '/api/auth/get-session', 'GET', undefined, first.cookie)
+        ).json(),
+      ).user?.username,
+    ).toBe('admin');
     expect((await request(backend, '/api/auth/logout', 'POST', {}, first.cookie)).status).toBe(200);
-    expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, first.cookie)).json()).toEqual({ user: null });
-    expect(sessionResponseSchema.parse(await (await request(backend, '/api/auth/get-session', 'GET', undefined, second.cookie)).json()).user?.username).toBe('admin');
+    expect(
+      await (
+        await request(backend, '/api/auth/get-session', 'GET', undefined, first.cookie)
+      ).json(),
+    ).toEqual({ user: null });
+    expect(
+      sessionResponseSchema.parse(
+        await (
+          await request(backend, '/api/auth/get-session', 'GET', undefined, second.cookie)
+        ).json(),
+      ).user?.username,
+    ).toBe('admin');
   });
 
   test('expired sessions cannot authorize access', async () => {
     const backend = fixture();
     await initialize(backend);
     const admin = await login(backend);
-    backend.db.update(session).set({ expiresAt: new Date(Date.now() - 1000) }).run();
-    await errorCode(await request(backend, '/api/users', 'GET', undefined, admin.cookie), 401, 'UNAUTHORIZED');
+    backend.db
+      .update(session)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .run();
+    await errorCode(
+      await request(backend, '/api/users', 'GET', undefined, admin.cookie),
+      401,
+      'UNAUTHORIZED',
+    );
   });
 });
 
@@ -148,16 +249,25 @@ describe('user administration and first-password gate', () => {
     const backend = fixture();
     await initialize(backend);
     for (const [path, method] of [
-      ['/api/users', 'GET'], ['/api/users', 'POST'], ['/api/me', 'PATCH'],
-      ['/api/users/id', 'PATCH'], ['/api/users/id/reset-password', 'POST'],
-      ['/api/auth/change-password', 'POST'], ['/api/auth/logout', 'POST'],
+      ['/api/users', 'GET'],
+      ['/api/users', 'POST'],
+      ['/api/me', 'PATCH'],
+      ['/api/users/id', 'PATCH'],
+      ['/api/users/id/reset-password', 'POST'],
+      ['/api/auth/change-password', 'POST'],
+      ['/api/auth/logout', 'POST'],
     ]) {
       await errorCode(await request(backend, path, method), 401, 'UNAUTHORIZED');
     }
     for (const path of [
-      '/api/auth/sign-up/email', '/api/auth/admin/create-user', '/api/auth/admin/set-role',
-      '/api/auth/admin/set-user-password', '/api/auth/admin/ban-user',
-      '/api/auth/update-user', '/api/auth/sign-in/email', '/api/auth/set-password',
+      '/api/auth/sign-up/email',
+      '/api/auth/admin/create-user',
+      '/api/auth/admin/set-role',
+      '/api/auth/admin/set-user-password',
+      '/api/auth/admin/ban-user',
+      '/api/auth/update-user',
+      '/api/auth/sign-in/email',
+      '/api/auth/set-password',
     ]) {
       await errorCode(await request(backend, path, 'POST', {}), 404, 'NOT_FOUND');
     }
@@ -178,18 +288,62 @@ describe('user administration and first-password gate', () => {
       ['/api/users/' + employee.id, 'PATCH', { role: 'admin' }],
       ['/api/users/' + employee.id + '/reset-password', 'POST', { newPassword: newPin }],
     ] as const) {
-      await errorCode(await request(backend, path, method, body, first.cookie), 403, 'PASSWORD_CHANGE_REQUIRED');
+      await errorCode(
+        await request(backend, path, method, body, first.cookie),
+        403,
+        'PASSWORD_CHANGE_REQUIRED',
+      );
     }
-    await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: '9999', newPassword: newPin }, first.cookie), 400, 'INVALID_CURRENT_PASSWORD');
-    const changed = await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, first.cookie);
+    await errorCode(
+      await request(
+        backend,
+        '/api/auth/change-password',
+        'POST',
+        { currentPassword: '9999', newPassword: newPin },
+        first.cookie,
+      ),
+      400,
+      'INVALID_CURRENT_PASSWORD',
+    );
+    const changed = await request(
+      backend,
+      '/api/auth/change-password',
+      'POST',
+      { currentPassword: pin, newPassword: newPin },
+      first.cookie,
+    );
     expect(changed.status).toBe(200);
     expect(userResponseSchema.parse(await changed.json()).user.mustChangePassword).toBe(false);
-    expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, other.cookie)).json()).toEqual({ user: null });
-    await errorCode(await request(backend, '/api/users', 'GET', undefined, first.cookie), 403, 'FORBIDDEN');
-    await errorCode(await request(backend, '/api/me', 'PATCH', { floor: '4', desk: 'C-8' }, first.cookie), 400, 'VALIDATION_ERROR');
-    const profileResponse = await request(backend, '/api/me', 'PATCH', { language: 'en' }, first.cookie);
-    expect(userResponseSchema.parse(await profileResponse.json()).user).toMatchObject({ language: 'en' });
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
+    expect(
+      await (
+        await request(backend, '/api/auth/get-session', 'GET', undefined, other.cookie)
+      ).json(),
+    ).toEqual({ user: null });
+    await errorCode(
+      await request(backend, '/api/users', 'GET', undefined, first.cookie),
+      403,
+      'FORBIDDEN',
+    );
+    await errorCode(
+      await request(backend, '/api/me', 'PATCH', { floor: '4', desk: 'C-8' }, first.cookie),
+      400,
+      'VALIDATION_ERROR',
+    );
+    const profileResponse = await request(
+      backend,
+      '/api/me',
+      'PATCH',
+      { language: 'en' },
+      first.cookie,
+    );
+    expect(userResponseSchema.parse(await profileResponse.json()).user).toMatchObject({
+      language: 'en',
+    });
+    await errorCode(
+      await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
     await login(backend, 'employee', newPin);
   });
 
@@ -200,12 +354,40 @@ describe('user administration and first-password gate', () => {
     const target = await createUser(backend, admin.cookie);
     const first = await login(backend, 'employee', pin);
     const second = await login(backend, 'employee', pin);
-    expect((await request(backend, '/api/users/' + target.id + '/reset-password', 'POST', { newPassword: newPin }, admin.cookie)).status).toBe(200);
+    expect(
+      (
+        await request(
+          backend,
+          '/api/users/' + target.id + '/reset-password',
+          'POST',
+          { newPassword: newPin },
+          admin.cookie,
+        )
+      ).status,
+    ).toBe(200);
     for (const device of [first, second]) {
-      expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
-      await errorCode(await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, device.cookie), 401, 'UNAUTHORIZED');
+      expect(
+        await (
+          await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)
+        ).json(),
+      ).toEqual({ user: null });
+      await errorCode(
+        await request(
+          backend,
+          '/api/auth/change-password',
+          'POST',
+          { currentPassword: pin, newPassword: newPin },
+          device.cookie,
+        ),
+        401,
+        'UNAUTHORIZED',
+      );
     }
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
+    await errorCode(
+      await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
     expect((await login(backend, 'employee', newPin)).user.mustChangePassword).toBe(true);
   });
 
@@ -216,16 +398,37 @@ describe('user administration and first-password gate', () => {
     const target = await createUser(backend, admin.cookie);
     const first = await login(backend, 'employee', pin);
     const second = await login(backend, 'employee', pin);
-    const response = await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: false }, admin.cookie);
+    const response = await request(
+      backend,
+      '/api/users/' + target.id,
+      'PATCH',
+      { isActive: false },
+      admin.cookie,
+    );
     expect(userResponseSchema.parse(await response.json()).user.isActive).toBe(false);
     for (const device of [first, second]) {
-      expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
+      expect(
+        await (
+          await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)
+        ).json(),
+      ).toEqual({ user: null });
     }
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }), 401, 'INVALID_CREDENTIALS');
+    await errorCode(
+      await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: pin }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
     expect(backend.db.select().from(user).where(eq(user.id, target.id)).get()).toBeDefined();
-    expect((await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie)).status).toBe(200);
+    expect(
+      (await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie))
+        .status,
+    ).toBe(200);
     expect((await login(backend, 'employee', pin)).user.mustChangePassword).toBe(true);
-    expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, first.cookie)).json()).toEqual({ user: null });
+    expect(
+      await (
+        await request(backend, '/api/auth/get-session', 'GET', undefined, first.cookie)
+      ).json(),
+    ).toEqual({ user: null });
   });
 
   test('removing a person hides them, revokes every session and preserves order history', async () => {
@@ -234,31 +437,86 @@ describe('user administration and first-password gate', () => {
     const admin = await login(backend);
     const target = await createUser(backend, admin.cookie);
     const first = await login(backend, 'employee', pin);
-    expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, first.cookie)).status).toBe(200);
+    expect(
+      (
+        await request(
+          backend,
+          '/api/auth/change-password',
+          'POST',
+          { currentPassword: pin, newPassword: newPin },
+          first.cookie,
+        )
+      ).status,
+    ).toBe(200);
     const second = await login(backend, 'employee', newPin);
-    const menu = menuResponseSchema.parse(await (await request(backend, '/api/menu', 'GET', undefined, first.cookie)).json());
-    const placed = await request(backend, '/api/orders', 'POST', {
-      idempotencyKey: crypto.randomUUID(), note: '',
-      items: [{ itemId: menu.items[0].id, quantity: 1 }],
-    }, first.cookie);
+    const menu = menuResponseSchema.parse(
+      await (await request(backend, '/api/menu', 'GET', undefined, first.cookie)).json(),
+    );
+    const placed = await request(
+      backend,
+      '/api/orders',
+      'POST',
+      {
+        idempotencyKey: crypto.randomUUID(),
+        note: '',
+        items: [{ itemId: menu.items[0].id, quantity: 1 }],
+      },
+      first.cookie,
+    );
     expect(placed.status).toBe(201);
     const original = orderResponseSchema.parse(await placed.json()).order;
-    expect((await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie)).status).toBe(200);
-    const list = z.object({ users: z.array(publicUserSchema) }).parse(await (await request(backend, '/api/users', 'GET', undefined, admin.cookie)).json());
+    expect(
+      (await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie)).status,
+    ).toBe(200);
+    const list = z
+      .object({ users: z.array(publicUserSchema) })
+      .parse(await (await request(backend, '/api/users', 'GET', undefined, admin.cookie)).json());
     expect(list.users.some((person) => person.id === target.id)).toBe(false);
     const stored = backend.db.select().from(user).where(eq(user.id, target.id)).get();
     expect(stored?.deletedAt).toBeInstanceOf(Date);
     expect(stored?.banned).toBe(true);
     for (const device of [first, second]) {
-      expect(await (await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)).json()).toEqual({ user: null });
+      expect(
+        await (
+          await request(backend, '/api/auth/get-session', 'GET', undefined, device.cookie)
+        ).json(),
+      ).toEqual({ user: null });
     }
-    await errorCode(await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: newPin }), 401, 'INVALID_CREDENTIALS');
-    await errorCode(await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie), 404, 'USER_NOT_FOUND');
-    await errorCode(await request(backend, '/api/users/' + target.id + '/reset-password', 'POST', { newPassword: pin }, admin.cookie), 404, 'USER_NOT_FOUND');
-    await errorCode(await request(backend, '/api/users', 'POST', createdUser, admin.cookie), 409, 'USERNAME_TAKEN');
-    const history = ordersResponseSchema.parse(await (await request(backend, '/api/work/orders', 'GET', undefined, admin.cookie)).json());
+    await errorCode(
+      await request(backend, '/api/auth/login', 'POST', { username: 'employee', password: newPin }),
+      401,
+      'INVALID_CREDENTIALS',
+    );
+    await errorCode(
+      await request(backend, '/api/users/' + target.id, 'PATCH', { isActive: true }, admin.cookie),
+      404,
+      'USER_NOT_FOUND',
+    );
+    await errorCode(
+      await request(
+        backend,
+        '/api/users/' + target.id + '/reset-password',
+        'POST',
+        { newPassword: pin },
+        admin.cookie,
+      ),
+      404,
+      'USER_NOT_FOUND',
+    );
+    await errorCode(
+      await request(backend, '/api/users', 'POST', createdUser, admin.cookie),
+      409,
+      'USERNAME_TAKEN',
+    );
+    const history = ordersResponseSchema.parse(
+      await (await request(backend, '/api/work/orders', 'GET', undefined, admin.cookie)).json(),
+    );
     expect(history.orders.find((order) => order.id === original.id)).toMatchObject(original);
-    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie), 404, 'USER_NOT_FOUND');
+    await errorCode(
+      await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie),
+      404,
+      'USER_NOT_FOUND',
+    );
   });
 
   test('removal requires an administrator, a valid origin and a valid target', async () => {
@@ -266,30 +524,93 @@ describe('user administration and first-password gate', () => {
     await initialize(backend);
     const admin = await login(backend);
     const target = await createUser(backend, admin.cookie);
-    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE'), 401, 'UNAUTHORIZED');
-    await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, admin.cookie, 'http://attacker.invalid'), 403, 'INVALID_ORIGIN');
+    await errorCode(
+      await request(backend, '/api/users/' + target.id, 'DELETE'),
+      401,
+      'UNAUTHORIZED',
+    );
+    await errorCode(
+      await request(
+        backend,
+        '/api/users/' + target.id,
+        'DELETE',
+        {},
+        admin.cookie,
+        'http://attacker.invalid',
+      ),
+      403,
+      'INVALID_ORIGIN',
+    );
     for (const role of ['employee', 'staff'] as const) {
       await createUser(backend, admin.cookie, { username: role + '_actor', role });
       const actor = await login(backend, role + '_actor', pin);
-      expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: pin, newPassword: newPin }, actor.cookie)).status).toBe(200);
-      await errorCode(await request(backend, '/api/users/' + target.id, 'DELETE', {}, actor.cookie), 403, 'FORBIDDEN');
+      expect(
+        (
+          await request(
+            backend,
+            '/api/auth/change-password',
+            'POST',
+            { currentPassword: pin, newPassword: newPin },
+            actor.cookie,
+          )
+        ).status,
+      ).toBe(200);
+      await errorCode(
+        await request(backend, '/api/users/' + target.id, 'DELETE', {}, actor.cookie),
+        403,
+        'FORBIDDEN',
+      );
     }
-    await errorCode(await request(backend, '/api/users/' + 'x'.repeat(129), 'DELETE', {}, admin.cookie), 400, 'VALIDATION_ERROR');
-    await errorCode(await request(backend, '/api/users/' + crypto.randomUUID(), 'DELETE', {}, admin.cookie), 404, 'USER_NOT_FOUND');
-    expect(backend.db.select().from(user).where(eq(user.id, target.id)).get()?.deletedAt).toBeNull();
+    await errorCode(
+      await request(backend, '/api/users/' + 'x'.repeat(129), 'DELETE', {}, admin.cookie),
+      400,
+      'VALIDATION_ERROR',
+    );
+    await errorCode(
+      await request(backend, '/api/users/' + crypto.randomUUID(), 'DELETE', {}, admin.cookie),
+      404,
+      'USER_NOT_FOUND',
+    );
+    expect(
+      backend.db.select().from(user).where(eq(user.id, target.id)).get()?.deletedAt,
+    ).toBeNull();
   });
 
   test('removal protects the last administrator while preserving the setup record', async () => {
     const backend = fixture();
     const initial = await initialize(backend);
     const admin = await login(backend);
-    await errorCode(await request(backend, '/api/users/' + initial.id, 'DELETE', {}, admin.cookie), 409, 'LAST_ACTIVE_ADMIN');
-    const next = await createUser(backend, admin.cookie, { username: 'next_admin', role: 'admin', password });
+    await errorCode(
+      await request(backend, '/api/users/' + initial.id, 'DELETE', {}, admin.cookie),
+      409,
+      'LAST_ACTIVE_ADMIN',
+    );
+    const next = await createUser(backend, admin.cookie, {
+      username: 'next_admin',
+      role: 'admin',
+      password,
+    });
     const actor = await login(backend, next.username);
-    expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, actor.cookie)).status).toBe(200);
-    expect((await request(backend, '/api/users/' + initial.id, 'DELETE', {}, actor.cookie)).status).toBe(200);
+    expect(
+      (
+        await request(
+          backend,
+          '/api/auth/change-password',
+          'POST',
+          { currentPassword: password, newPassword },
+          actor.cookie,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request(backend, '/api/users/' + initial.id, 'DELETE', {}, actor.cookie)).status,
+    ).toBe(200);
     expect(await (await request(backend, '/api/setup')).json()).toEqual({ setupRequired: false });
-    await errorCode(await request(backend, '/api/users/' + next.id, 'DELETE', {}, actor.cookie), 409, 'LAST_ACTIVE_ADMIN');
+    await errorCode(
+      await request(backend, '/api/users/' + next.id, 'DELETE', {}, actor.cookie),
+      409,
+      'LAST_ACTIVE_ADMIN',
+    );
   });
 
   test('protects the last active administrator and applies role changes immediately', async () => {
@@ -297,15 +618,57 @@ describe('user administration and first-password gate', () => {
     const initial = await initialize(backend);
     const admin = await login(backend);
     for (const body of [{ role: 'employee' }, { isActive: false }]) {
-      await errorCode(await request(backend, '/api/users/' + initial.id, 'PATCH', body, admin.cookie), 409, 'LAST_ACTIVE_ADMIN');
+      await errorCode(
+        await request(backend, '/api/users/' + initial.id, 'PATCH', body, admin.cookie),
+        409,
+        'LAST_ACTIVE_ADMIN',
+      );
     }
-    const second = await createUser(backend, admin.cookie, { username: 'second_admin', role: 'admin', password });
+    const second = await createUser(backend, admin.cookie, {
+      username: 'second_admin',
+      role: 'admin',
+      password,
+    });
     const secondLogin = await login(backend, 'second_admin');
-    expect((await request(backend, '/api/auth/change-password', 'POST', { currentPassword: password, newPassword }, secondLogin.cookie)).status).toBe(200);
-    expect((await request(backend, '/api/users/' + initial.id, 'PATCH', { role: 'staff', name: 'Staff' }, secondLogin.cookie)).status).toBe(200);
+    expect(
+      (
+        await request(
+          backend,
+          '/api/auth/change-password',
+          'POST',
+          { currentPassword: password, newPassword },
+          secondLogin.cookie,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(
+          backend,
+          '/api/users/' + initial.id,
+          'PATCH',
+          { role: 'staff', name: 'Staff' },
+          secondLogin.cookie,
+        )
+      ).status,
+    ).toBe(200);
     // Crossing the admin boundary clears the credential and revokes sessions.
-    await errorCode(await request(backend, '/api/users', 'GET', undefined, admin.cookie), 401, 'UNAUTHORIZED');
-    await errorCode(await request(backend, '/api/users/' + second.id, 'PATCH', { isActive: false }, secondLogin.cookie), 409, 'LAST_ACTIVE_ADMIN');
+    await errorCode(
+      await request(backend, '/api/users', 'GET', undefined, admin.cookie),
+      401,
+      'UNAUTHORIZED',
+    );
+    await errorCode(
+      await request(
+        backend,
+        '/api/users/' + second.id,
+        'PATCH',
+        { isActive: false },
+        secondLogin.cookie,
+      ),
+      409,
+      'LAST_ACTIVE_ADMIN',
+    );
   });
 
   test('validates bounded strict input, username uniqueness, and disallows privilege changes through personal profile', async () => {
@@ -313,17 +676,38 @@ describe('user administration and first-password gate', () => {
     await initialize(backend);
     const admin = await login(backend);
     await createUser(backend, admin.cookie);
-    await errorCode(await request(backend, '/api/users', 'POST', createdUser, admin.cookie), 409, 'USERNAME_TAKEN');
+    await errorCode(
+      await request(backend, '/api/users', 'POST', createdUser, admin.cookie),
+      409,
+      'USERNAME_TAKEN',
+    );
     for (const body of [
       { ...createdUser, username: 'invalid username' },
       { ...createdUser, username: 'new_user', password: 'short' },
       { ...createdUser, username: 'new_user', role: 'owner' },
       { ...createdUser, username: 'new_user', name: 'n'.repeat(101) },
       { ...createdUser, username: 'new_user', email: 'external@example.com' },
-    ]) await errorCode(await request(backend, '/api/users', 'POST', body, admin.cookie), 400, 'VALIDATION_ERROR');
-    await errorCode(await request(backend, '/api/me', 'PATCH', { role: 'admin' }, admin.cookie), 400, 'VALIDATION_ERROR');
-    await errorCode(await request(backend, '/api/me', 'PATCH', { name: 'x'.repeat(17000) }, admin.cookie), 413, 'BODY_TOO_LARGE');
-    const malformed = await backend.app.request('/api/me', { method: 'PATCH', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: admin.cookie }, body: '{' });
+    ])
+      await errorCode(
+        await request(backend, '/api/users', 'POST', body, admin.cookie),
+        400,
+        'VALIDATION_ERROR',
+      );
+    await errorCode(
+      await request(backend, '/api/me', 'PATCH', { role: 'admin' }, admin.cookie),
+      400,
+      'VALIDATION_ERROR',
+    );
+    await errorCode(
+      await request(backend, '/api/me', 'PATCH', { name: 'x'.repeat(17000) }, admin.cookie),
+      413,
+      'BODY_TOO_LARGE',
+    );
+    const malformed = await backend.app.request('/api/me', {
+      method: 'PATCH',
+      headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: admin.cookie },
+      body: '{',
+    });
     await errorCode(malformed, 400, 'VALIDATION_ERROR');
   });
 });
@@ -331,13 +715,28 @@ describe('user administration and first-password gate', () => {
 describe('request boundary', () => {
   test('every mutation requires the configured Origin, including setup and login', async () => {
     const backend = fixture();
-    for (const path of ['/api/setup', '/api/auth/login', '/api/auth/logout', '/api/auth/change-password', '/api/users', '/api/users/id/reset-password']) {
+    for (const path of [
+      '/api/setup',
+      '/api/auth/login',
+      '/api/auth/logout',
+      '/api/auth/change-password',
+      '/api/users',
+      '/api/users/id/reset-password',
+    ]) {
       for (const invalidOrigin of [null, 'http://attacker.invalid']) {
-        await errorCode(await request(backend, path, 'POST', {}, undefined, invalidOrigin), 403, 'INVALID_ORIGIN');
+        await errorCode(
+          await request(backend, path, 'POST', {}, undefined, invalidOrigin),
+          403,
+          'INVALID_ORIGIN',
+        );
       }
     }
     for (const path of ['/api/me', '/api/users/id']) {
-      await errorCode(await request(backend, path, 'PATCH', {}, undefined, null), 403, 'INVALID_ORIGIN');
+      await errorCode(
+        await request(backend, path, 'PATCH', {}, undefined, null),
+        403,
+        'INVALID_ORIGIN',
+      );
     }
   });
 
@@ -346,11 +745,19 @@ describe('request boundary', () => {
     const other = createApp(backend.config);
     resources.push(other.close);
     for (let index = 0; index < 10; index++) {
-      await errorCode(await request(index % 2 ? backend : other, '/api/setup', 'POST', {}), 400, 'VALIDATION_ERROR');
+      await errorCode(
+        await request(index % 2 ? backend : other, '/api/setup', 'POST', {}),
+        400,
+        'VALIDATION_ERROR',
+      );
     }
     await errorCode(await request(other, '/api/setup', 'POST', {}), 429, 'RATE_LIMITED');
     for (let index = 0; index < 30; index++) {
-      await errorCode(await request(index % 2 ? backend : other, '/api/auth/login', 'POST', {}), 400, 'VALIDATION_ERROR');
+      await errorCode(
+        await request(index % 2 ? backend : other, '/api/auth/login', 'POST', {}),
+        400,
+        'VALIDATION_ERROR',
+      );
     }
     await errorCode(await request(other, '/api/auth/login', 'POST', {}), 429, 'RATE_LIMITED');
   });

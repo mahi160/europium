@@ -1,60 +1,1469 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Office Service — four layout prototypes</title>
-<style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#202522;background:#f4f5f1}button,input{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cursor:default;opacity:.4}button:focus-visible,a:focus-visible{outline:3px solid #1671ef;outline-offset:4px}button{min-height:44px}h1,h2,h3,p{margin:0}button svg{pointer-events:none}svg{display:block}button{transition:transform .12s}button:active:not(:disabled){transform:scale(.97)}.prototype-note{padding:9px 20px;text-align:center;background:#202522;color:#fff;font-size:12px;line-height:1.5}.prototype-note strong{color:#d8f58a}#app{min-height:calc(100dvh - 36px);padding-bottom:100px}.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.5px;font-size:21px}.brand svg{width:28px;height:28px}.muted{color:#69716a}.small{font-size:13px}.button{border:0;background:#244bde;color:white;border-radius:8px;padding:14px 22px;font-weight:700}.button:disabled{opacity:.45}.quiet{background:transparent;border:1px solid #ccd1ca;border-radius:8px;padding:10px 16px}.count{display:flex;align-items:center;gap:12px}.count button{width:44px;height:44px;border:1px solid #d7dbd4;background:white;border-radius:8px;font-size:22px}.count output{font-weight:700;min-width:18px;text-align:center}.empty{color:#69716a;padding:24px 0;line-height:1.6}.switcher{position:fixed;z-index:20;bottom:max(18px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;background:#fff;color:#202522;border:1px solid #d3d7d1;border-radius:12px;box-shadow:0 8px 32px #0002;white-space:nowrap}.switcher button{background:none;border:0;border-radius:7px;min-width:44px;padding:8px 14px;font-weight:700;font-size:13px}.switcher button[aria-pressed=true]{background:#202522;color:white}.switcher .arrow{font-size:20px;padding:8px}.switcher-label{padding:0 10px;font-size:12px;color:#69716a}#announcement{position:fixed;z-index:30;top:48px;left:50%;transform:translateX(-50%);max-width:calc(100% - 32px);background:#202522;color:white;padding:14px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px #0002}#announcement:empty{display:none}
-/* A: a point-of-sale workstation. Navigation, product keys, receipt. */
-.pos{display:grid;grid-template-columns:88px minmax(0,1fr) 330px;min-height:calc(100dvh - 36px);background:#edf1f7}.pos-rail{padding:26px 12px;background:#2349d9;color:white;display:flex;align-items:center;flex-direction:column;gap:28px}.pos-rail>.brand{margin-bottom:20px}.pos-rail button{width:64px;border:0;background:transparent;color:#cbd4ff;border-radius:10px;padding:10px 0;font-size:12px;display:grid;justify-items:center;gap:8px}.pos-rail button.active{background:#fff;color:#244bde}.pos-rail svg{width:24px;height:24px}.pos-user{margin-top:auto;border:1px solid #8098f4;border-radius:50%;padding:12px;font-size:13px}.pos-main{padding:32px}.pos-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:36px}.pos-head h1{font-size:30px;letter-spacing:-1px}.pos-head p{margin-top:7px;font-size:14px;color:#68748a}.pos-time{font-size:13px;color:#68748a}.categories{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}.categories button{border:0;border-radius:7px;padding:10px 20px;background:#dfe5ef;color:#59647a;font-size:14px}.categories button.active{background:#202e49;color:#fff}.product-keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.product-key{display:flex;flex-direction:column;align-items:start;justify-content:space-between;min-height:190px;border:0;padding:20px;background:#fff;border-radius:12px;text-align:left;position:relative}.product-key:hover{outline:2px solid #244bde}.product-key .drink-art{width:66px;height:66px;color:#3455b3}.product-key:nth-child(3n+2) .drink-art{color:#8b653b}.product-key:nth-child(3n) .drink-art{color:#4b786b}.product-key strong{font-size:18px;display:block;margin-top:18px}.product-key small{display:block;color:#748096;margin-top:5px}.key-plus{position:absolute;right:16px;top:18px;font-size:25px;color:#93a0b6}.key-quantity{position:absolute;right:14px;bottom:18px;background:#244bde;color:#fff;border-radius:50%;width:28px;height:28px;display:grid;place-items:center;font-size:13px}.receipt{padding:32px 24px;background:white;display:flex;flex-direction:column;gap:24px}.receipt-top{display:flex;justify-content:space-between;align-items:center}.receipt h2{font-size:21px}.receipt-id{font-size:13px;color:#6e7989}.receipt-place{padding:14px;background:#f0f3f8;border-radius:8px;font-size:13px;line-height:1.8}.receipt-items{list-style:none;margin:0;padding:0;display:grid;gap:20px}.receipt-items li{display:grid;gap:10px}.receipt-items .count{justify-content:space-between}.receipt-items .count button{width:36px}.receipt-footer{margin-top:auto;border-top:2px dashed #dce2eb;padding-top:20px;display:grid;gap:18px}.receipt-total{display:flex;justify-content:space-between}.receipt-total strong{font-size:24px}.receipt .button{width:100%}.receipt-help{font-size:12px;color:#6e7989;text-align:center}.pos-recent{margin-top:30px;padding:18px 0;color:#647088;font-size:13px;display:flex;gap:10px;align-items:center}.live-dot{width:7px;height:7px;border-radius:50%;background:#3b8268;display:inline-block}
-/* B: one decision at a time. No grid, no receipt rail. */
-.kiosk{background:#f7f0f2;min-height:calc(100dvh - 36px);padding:28px 6vw 110px}.kiosk-header{display:flex;align-items:center;justify-content:space-between}.kiosk-cart{background:#202522;border:0;color:#fff;border-radius:30px;padding:12px 22px;display:flex;align-items:center;gap:15px}.kiosk-cart span{background:#f7f0f2;color:#202522;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-size:13px}.kiosk-content{max-width:1100px;margin:65px auto 0;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:8vw}.kiosk-copy h1{font-size:clamp(44px,5.5vw,78px);letter-spacing:-4px;line-height:1.02;max-width:500px}.kiosk-copy>p{margin-top:20px;font-size:17px;color:#796b70;line-height:1.6}.drink-select{display:flex;gap:10px;flex-wrap:wrap;margin-top:34px}.drink-select button{border:1px solid #d6c8cd;background:transparent;padding:12px 20px;border-radius:30px;font-size:14px}.drink-select button.active{background:#202522;border-color:#202522;color:#fff}.kiosk-stage{min-height:380px;background:#e9d8dd;border-radius:50% 50% 12px 12px;display:flex;align-items:center;justify-content:center;position:relative}.kiosk-stage>.drink-art{width:220px;height:220px;color:#643747}.kiosk-stage .cup-caption{position:absolute;bottom:28px;font-size:13px;color:#643747}.kiosk-choice{margin-top:28px;display:flex;align-items:center;justify-content:space-between;gap:16px}.kiosk-choice h2{font-size:28px;letter-spacing:-1px}.kiosk-choice p{margin-top:5px;color:#796b70;font-size:14px}.kiosk .count button{border-radius:50%;background:transparent;border-color:#c8b5be}.kiosk-add{width:100%;margin-top:22px;border:0;background:#643747;color:white;border-radius:30px;padding:17px;font-weight:700}.kiosk-bottom{max-width:1100px;margin:42px auto 0;border-top:1px solid #dbcdd2;padding-top:20px;display:flex;justify-content:space-between;gap:20px;font-size:13px;color:#796b70}.kiosk-review{margin:30px auto 0;max-width:1100px;background:#fff;padding:24px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;gap:20px}.kiosk-review p{line-height:1.8}.kiosk-review .button{background:#643747;flex-shrink:0}
-/* C: the kitchen works in columns. The order, not the menu, is the main object. */
-.dispatch{background:#1c2020;color:#edf0e8;min-height:calc(100dvh - 36px);padding:26px 32px 110px}.dispatch-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #3d4441;padding-bottom:24px}.dispatch-header .brand{color:#d4ed99}.dispatch-meta{font-size:13px;color:#a5b0a7;display:flex;align-items:center;gap:20px}.dispatch-title{display:flex;align-items:end;justify-content:space-between;padding:32px 0}.dispatch h1{font-size:32px;letter-spacing:-1px}.dispatch-title p{margin-top:8px;color:#a5b0a7;font-size:14px}.dispatch-title .quiet{border-color:#66715c;color:#d4ed99}.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}.lane-heading{display:flex;justify-content:space-between;align-items:center;padding:0 0 16px;font-size:15px}.lane-heading span{background:#343c35;min-width:28px;padding:5px 8px;text-align:center;border-radius:5px;font-size:13px}.lane-list{display:grid;gap:16px;align-content:start}.ticket{background:#f3f2e9;color:#282e25;padding:22px;border-radius:3px}.ticket-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#63695c}.ticket-header strong{font-size:19px;color:#282e25}.ticket h3{margin-top:24px;font-size:20px}.ticket-address{font-size:13px;margin-top:5px;color:#63695c}.ticket ul{list-style:none;padding:18px 0;margin:18px 0;border-block:1px dashed #bbbeb0;display:grid;gap:14px}.ticket li{display:flex;gap:12px;align-items:center;font-size:17px}.ticket li strong{font-size:22px;width:25px}.ticket-note{font-size:13px;padding:10px;background:#e5e5d8;margin-bottom:20px}.ticket-action{width:100%;border:0;border-radius:3px;background:#292f26;color:white;font-weight:700;padding:14px}.lane:nth-child(2) .ticket{background:#d7e7af}.lane:nth-child(2) .ticket-action{background:#324717}.lane:nth-child(3) .ticket{background:#2b332c;color:#bcc7b9}.lane:nth-child(3) .ticket-header strong,.lane:nth-child(3) .ticket h3{color:#d8e0d2}.lane:nth-child(3) .ticket-header,.lane:nth-child(3) .ticket-address{color:#a2b09b}.lane:nth-child(3) .ticket ul{border-color:#59634f}.done-label{font-size:13px;color:#c1db94}.lane-empty{border:1px dashed #4b554b;border-radius:4px;padding:30px 18px;color:#a5b0a7;font-size:14px}
-/* D: a compact, menu-first sheet with a horizontal running order. */
-.sheet{background:#fff;min-height:calc(100dvh - 36px);padding:0 5vw 190px}.sheet-header{display:flex;justify-content:space-between;align-items:center;padding:24px 0;border-bottom:2px solid #202522}.sheet-header .brand{font-size:18px}.sheet-header p{font-size:13px}.sheet-intro{padding:40px 0 30px;display:flex;justify-content:space-between;align-items:end;gap:24px}.sheet h1{font-size:48px;letter-spacing:-2px}.sheet-intro p{font-size:14px;color:#69716a;line-height:1.8}.sheet-columns{display:grid;grid-template-columns:1fr 1fr;gap:70px}.menu-group h2{font-size:16px;padding:14px 0;border-bottom:1px solid #202522;display:flex;justify-content:space-between}.menu-group h2 span{font-size:12px;font-weight:400;color:#69716a}.menu-lines{list-style:none;padding:0;margin:0}.menu-line{display:grid;grid-template-columns:1fr auto;align-items:center;gap:20px;padding:20px 0;border-bottom:1px solid #e2e5dd}.menu-line strong{display:block;font-size:18px}.menu-line small{display:block;color:#69716a;margin-top:6px;font-size:13px}.menu-line .count button{border:0;background:#f0f2ed;border-radius:0}.menu-line .count button:last-child{background:#202522;color:white}.sheet-history{margin-top:36px;font-size:13px;display:flex;gap:20px;flex-wrap:wrap;color:#69716a}.sheet-history strong{color:#202522}.order-strip{position:fixed;bottom:92px;left:5vw;right:5vw;padding:18px 24px;background:#edf2e6;border:1px solid #d2dbca;display:flex;align-items:center;gap:24px;z-index:10}.strip-title{border-right:1px solid #c3cdbb;padding-right:24px;flex-shrink:0}.strip-title strong{display:block}.strip-title small{display:block;margin-top:5px;color:#65735b}.strip-summary{font-size:14px;flex:1;line-height:1.6}.order-strip .button{background:#202522;border-radius:0}.sheet-footer{margin-top:40px;font-size:12px;color:#69716a}
-@media(min-width:1500px){.pos-main{padding:40px 4vw}.product-key{min-height:230px}.product-key .drink-art{width:85px;height:85px}}
-@media(max-width:1100px){.pos{grid-template-columns:72px minmax(0,1fr) 285px}.pos-main{padding:24px}.product-keys{grid-template-columns:repeat(2,minmax(0,1fr))}.pos-rail{padding-inline:4px}.receipt{padding:26px 20px}.kiosk-content{gap:5vw}.kiosk-stage{min-height:320px}.sheet-columns{gap:35px}.board{gap:14px}.dispatch{padding-inline:20px}.ticket{padding:18px}.dispatch-meta span:first-child{display:none}}
-@media(max-width:760px){.prototype-note{font-size:11px;padding-inline:12px}.switcher{gap:0;bottom:12px;max-width:calc(100% - 16px);padding:5px}.switcher-label{display:none}.switcher button{padding:8px 10px;font-size:12px;min-width:36px}.switcher .arrow{padding:6px;min-width:32px}.pos{display:block}.pos-rail{padding:12px 16px;flex-direction:row;gap:12px;justify-content:space-between}.pos-rail>.brand{margin:0}.pos-rail button{display:flex;align-items:center;justify-content:center;gap:6px;width:auto;padding:8px 12px}.pos-user{margin:0;padding:10px}.pos-main{padding:24px 16px}.pos-head{margin-bottom:24px}.pos-head h1{font-size:26px}.pos-time{display:none}.product-keys{gap:10px}.product-key{min-height:170px;padding:16px}.product-key strong{font-size:17px}.product-key .drink-art{width:56px;height:56px}.categories{gap:6px}.categories button{padding:8px 15px}.receipt{margin:0 16px 20px;border-radius:12px;gap:20px}.receipt-footer{margin-top:12px}.pos-recent{margin-top:12px}.kiosk{padding:22px 20px 110px}.kiosk-header .brand{font-size:18px}.kiosk-cart{padding:8px 14px;font-size:13px}.kiosk-content{display:flex;flex-direction:column;gap:28px;margin-top:35px;align-items:stretch}.kiosk-copy h1{font-size:48px;letter-spacing:-2px;max-width:330px}.kiosk-copy>p{font-size:15px;margin-top:12px}.drink-select{margin-top:20px;gap:6px}.drink-select button{padding:10px 15px;font-size:13px}.kiosk-stage{min-height:250px;max-width:400px;width:100%;margin:auto}.kiosk-stage>.drink-art{width:160px;height:160px}.kiosk-stage .cup-caption{bottom:22px}.kiosk-choice{margin-top:22px}.kiosk-choice h2{font-size:24px}.kiosk-bottom{margin-top:28px;flex-direction:column;gap:8px}.kiosk-review{flex-direction:column;align-items:stretch;padding:18px}.dispatch{padding:20px 16px 110px}.dispatch-header{padding-bottom:18px}.dispatch-header .brand{font-size:18px}.dispatch-meta{font-size:12px}.dispatch-title{padding:26px 0;align-items:center}.dispatch h1{font-size:27px}.dispatch-title p{max-width:200px;line-height:1.5}.dispatch-title .quiet{padding:10px;font-size:12px}.board{grid-template-columns:1fr;gap:30px}.lane-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}.ticket h3{margin-top:18px}.sheet{padding:0 20px 220px}.sheet-header{padding:20px 0}.sheet-header p{max-width:130px;text-align:right;font-size:12px}.sheet-intro{padding:30px 0 20px;display:block}.sheet h1{font-size:40px}.sheet-intro p{margin-top:12px}.sheet-columns{grid-template-columns:1fr;gap:24px}.menu-line{padding:16px 0;gap:10px}.menu-line strong{font-size:17px}.menu-line .count{gap:8px}.sheet-history{gap:12px;line-height:1.5}.order-strip{left:12px;right:12px;bottom:82px;padding:14px;gap:12px;flex-wrap:wrap}.strip-title{padding-right:12px;font-size:13px}.strip-summary{font-size:12px;min-width:130px}.order-strip .button{width:100%;padding:12px}.sheet-footer{line-height:1.6}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
-</style>
-</head>
-<body>
-<div class="prototype-note"><strong>Layout playground</strong> · Sample data, no real orders. Four different ways to work.</div>
-<main id="app"></main>
-<div id="announcement" role="status" aria-live="polite"></div>
-<aside class="switcher" aria-label="Prototype layouts">
-<button class="arrow" data-switch="prev" aria-label="Previous layout">←</button>
-<span class="switcher-label">Try a layout</span>
-<button data-variant="counter">Counter</button><button data-variant="kiosk">Kiosk</button><button data-variant="board">Tickets</button><button data-variant="sheet">Menu</button>
-<button class="arrow" data-switch="next" aria-label="Next layout">→</button>
-</aside>
-<script>
-// Throwaway prototype: four independent layouts; shared in-memory sample orders only.
-const items=[{id:'tea',name:'Milk tea',detail:'Freshly brewed · one cup',group:'Drinks',shape:'cup'},{id:'black',name:'Black tea',detail:'Light & simple · one cup',group:'Drinks',shape:'cup'},{id:'coffee',name:'Coffee',detail:'A little pick-me-up · one cup',group:'Drinks',shape:'cup'},{id:'water',name:'Water',detail:'Room temperature · one glass',group:'Drinks',shape:'glass'},{id:'biscuits',name:'Biscuits',detail:'Something to go with your tea',group:'Snacks',shape:'biscuit'},{id:'muri',name:'Muri mix',detail:'Light, crunchy · one bowl',group:'Snacks',shape:'bowl'}];
-const variants=['counter','kiosk','board','sheet'];
-const query=new URLSearchParams(location.search);
-let variant=variants.includes(query.get('variant'))?query.get('variant'):'counter';
-let cart={},category='All',chosen='tea',quantity=1,review=false,orderNumber=27;
-let tickets=[{id:24,name:'Nadia Rahman',place:'Floor 3 · Desk 12',lines:[['Milk tea',2],['Biscuits',1]],note:'One tea without sugar',status:0},{id:25,name:'Arif Hasan',place:'Floor 2 · Meeting room',lines:[['Coffee',3]],note:'',status:0},{id:23,name:'Farah Ahmed',place:'Floor 4 · Desk 08',lines:[['Black tea',1],['Muri mix',1]],note:'',status:1},{id:22,name:'Rafiq Islam',place:'Floor 1 · Reception',lines:[['Water',2]],note:'',status:2}];
-const app=document.getElementById('app');
-const cup='<path d="M22 42h49v22c0 17-49 17-49 0V42Z"/><path d="M71 45h7c17 0 17 20-7 20M16 84h62M37 16v14M52 12v18"/>';
-function art(shape='cup'){return `<svg class="drink-art" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${shape==='glass'?'<path d="M30 20h40l-5 64H35L30 20Z"/><path d="M33 46c12 7 22-7 35 0M39 72h16"/>':shape==='biscuit'?'<rect x="20" y="24" width="53" height="53" rx="10"/><path d="m30 24 3-8h45l6 9v44l-11 8M35 39h1M56 39h1M45 51h1M35 64h1M56 64h1"/>':shape==='bowl'?'<path d="M15 46h70c-4 41-65 41-70 0ZM28 38l6-10 9 9 8-15 10 13 9-6 7 10M40 84h21"/>':cup}</svg>`}
-function logo(){return `<div class="brand">${art()}<span>Office Service</span></div>`}
-function count(id,n){return `<div class="count"><button data-minus="${id}" aria-label="Remove one ${items.find(i=>i.id===id).name}" ${n===0?'disabled':''}>−</button><output aria-label="${items.find(i=>i.id===id).name} quantity">${n}</output><button data-plus="${id}" aria-label="Add one ${items.find(i=>i.id===id).name}">+</button></div>`}
-function total(){return Object.values(cart).reduce((a,b)=>a+b,0)}
-function summary(){return items.filter(i=>cart[i.id]).map(i=>`${cart[i.id]} × ${i.name}`).join(' · ')}
-function announce(message){document.getElementById('announcement').textContent=message}
-function pos(){return `<div class="pos"><aside class="pos-rail">${art()}<button class="active" data-category="All">${art('bowl')}Menu</button><button data-variant="board">${art('biscuit')}Orders</button><span class="pos-user">NR</span></aside><section class="pos-main"><header class="pos-head"><div><h1>What can we get you?</h1><p>A quick break, delivered to your desk.</p></div><span class="pos-time">Office pantry<br>Open until 5 pm</span></header><div class="categories" role="group" aria-label="Menu category">${['All','Drinks','Snacks'].map(c=>`<button class="${category===c?'active':''}" aria-pressed="${category===c}" data-category="${c}">${c}</button>`).join('')}</div><div class="product-keys">${items.filter(i=>category==='All'||i.group===category).map(i=>`<button class="product-key" data-plus="${i.id}" aria-label="Add ${i.name}">${art(i.shape)}<span class="key-plus">+</span><span><strong>${i.name}</strong><small>${i.group==='Drinks'?'One '+(i.id==='water'?'glass':'cup'):'One serving'}</small></span>${cart[i.id]?`<span class="key-quantity">${cart[i.id]}</span>`:''}</button>`).join('')}</div><p class="pos-recent"><span class="live-dot"></span>Office pantry is taking orders</p></section><aside class="receipt" aria-label="Current order"><div class="receipt-top"><h2>Your tray</h2><span class="receipt-id">#${orderNumber}</span></div><p class="receipt-place"><strong>Nadia Rahman</strong><br>Floor 3 · Desk 12</p>${total()?`<ul class="receipt-items">${items.filter(i=>cart[i.id]).map(i=>`<li><strong>${i.name}</strong>${count(i.id,cart[i.id])}</li>`).join('')}</ul>`:'<p class="empty">Your tray is empty.<br>Tap a menu button to start.</p>'}<div class="receipt-footer"><div class="receipt-total"><span>Total items</span><strong>${total()}</strong></div><button class="button" data-place ${!total()?'disabled':''}>Send to pantry →</button><p class="receipt-help">Complimentary office refreshments</p></div></aside></div>`}
-function kiosk(){const item=items.find(i=>i.id===chosen);return `<div class="kiosk"><header class="kiosk-header">${logo()}<button class="kiosk-cart" data-review aria-expanded="${review}">Your order <span>${total()}</span></button></header><div class="kiosk-content"><section class="kiosk-copy"><h1>Time for<br>a little break.</h1><p>Your favourite refreshment.<br>Just a couple of taps away.</p><div class="drink-select" role="group" aria-label="Choose a refreshment">${items.filter(i=>i.group==='Drinks').map(i=>`<button class="${chosen===i.id?'active':''}" aria-pressed="${chosen===i.id}" data-choose="${i.id}">${i.name}</button>`).join('')}</div></section><section><div class="kiosk-stage">${art(item.shape)}<span class="cup-caption">Made fresh in your office pantry</span></div><div class="kiosk-choice"><div><h2>${item.name}</h2><p>${item.detail}</p></div><div class="count"><button data-quantity="-1" aria-label="Decrease serving count" ${quantity===1?'disabled':''}>−</button><output aria-label="Servings">${quantity}</output><button data-quantity="1" aria-label="Increase serving count">+</button></div></div><button class="kiosk-add" data-add-choice>Add ${quantity} to your order →</button></section></div>${review?`<section class="kiosk-review" aria-label="Review order"><p><strong>Your order · ${total()} items</strong><br>${summary()||'Choose a drink to get started.'}</p><button class="button" data-place ${!total()?'disabled':''}>Place order →</button></section>`:''}<footer class="kiosk-bottom"><span>Delivering to <strong>Floor 3 · Desk 12</strong></span><span>Tea. Coffee. A moment to yourself.</span></footer></div>`}
-function board(){return `<div class="dispatch"><header class="dispatch-header">${logo()}<div class="dispatch-meta"><span>Pantry team</span><span><span class="live-dot"></span> On shift</span></div></header><div class="dispatch-title"><div><h1>The pass</h1><p>${tickets.filter(t=>t.status<2).length} orders to take care of. Oldest first.</p></div><button class="quiet" data-reset>Reset demo</button></div><div class="board">${['Just in','Making now','Served'].map((label,status)=>`<section class="lane"><h2 class="lane-heading">${label}<span>${tickets.filter(t=>t.status===status).length}</span></h2><div class="lane-list">${tickets.filter(t=>t.status===status).map(t=>`<article class="ticket"><div class="ticket-header"><strong>#${t.id}</strong><span>${status===2?'Completed':'Office order'}</span></div><h3>${t.name}</h3><p class="ticket-address">${t.place}</p><ul>${t.lines.map(([name,n])=>`<li><strong>${n}</strong> ${name}</li>`).join('')}</ul>${t.note?`<p class="ticket-note">${t.note}</p>`:''}${status<2?`<button class="ticket-action" data-advance="${t.id}">${status===0?'Start making':'Mark as served'} →</button>`:'<p class="done-label">✓ Delivered to desk</p>'}</article>`).join('')||'<p class="lane-empty">All clear here.</p>'}</div></section>`).join('')}</div></div>`}
-function sheet(){return `<div class="sheet"><header class="sheet-header">${logo()}<p>Office pantry<br>Weekdays, 9 am – 5 pm</p></header><section class="sheet-intro"><h1>The daily menu.</h1><p>Pick your refreshments. We’ll bring them over.<br><strong>Nadia · Floor 3 · Desk 12</strong></p></section><div class="sheet-columns">${['Drinks','Snacks'].map(group=>`<section class="menu-group"><h2>${group}<span>Complimentary</span></h2><ul class="menu-lines">${items.filter(i=>i.group===group).map(i=>`<li class="menu-line"><div><strong>${i.name}</strong><small>${i.detail}</small></div>${count(i.id,cart[i.id]||0)}</li>`).join('')}</ul></section>`).join('')}</div><section class="sheet-history" aria-label="Recent order"><strong>Last order</strong><span>Milk tea × 1 · Biscuits × 1</span><span>Delivered to your desk</span><button class="quiet" data-repeat>Order again +</button></section><p class="sheet-footer">Everything is prepared in the office pantry. Need something specific? Ask the pantry team.</p><aside class="order-strip" aria-label="Current order"><div class="strip-title"><strong>Your order</strong><small>${total()} items</small></div><p class="strip-summary">${summary()||'Use + to add something from the menu.'}</p><button class="button" data-place ${!total()?'disabled':''}>Place order →</button></aside></div>`}
-function render(){const focus=document.activeElement;const focusKey=focus?.closest('button')?.outerHTML;app.innerHTML=({counter:pos,kiosk,board,sheet})[variant]();document.querySelectorAll('.switcher [data-variant]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.variant===variant)));document.title=`Office Service · ${variant} prototype`;if(focusKey){const replacement=[...app.querySelectorAll('button')].find(b=>b.outerHTML===focusKey);replacement?.focus({preventScroll:true})}}
-function switchTo(next){variant=next;const url=new URL(location.href);url.searchParams.set('variant',variant);history.replaceState(null,'',url);announce('');render();window.scrollTo(0,0)}
-document.addEventListener('click',event=>{const b=event.target.closest('button');if(!b||b.disabled)return;const d=b.dataset;if(d.variant){switchTo(d.variant);return}if(d.switch){switchTo(variants[(variants.indexOf(variant)+(d.switch==='next'?1:3))%4]);return}announce('');if(d.plus){cart[d.plus]=(cart[d.plus]||0)+1}else if(d.minus){cart[d.minus]=Math.max(0,(cart[d.minus]||0)-1)}else if(d.category){category=d.category}else if(d.choose){chosen=d.choose;quantity=1}else if(d.quantity){quantity=Math.max(1,quantity+Number(d.quantity))}else if('addChoice'in d){cart[chosen]=(cart[chosen]||0)+quantity;review=true;announce(`${quantity} ${items.find(i=>i.id===chosen).name} added to your order.`)}else if('review'in d){review=!review}else if('place'in d&&total()){tickets.push({id:orderNumber,name:'Nadia Rahman',place:'Floor 3 · Desk 12',lines:items.filter(i=>cart[i.id]).map(i=>[i.name,cart[i.id]]),note:'',status:0});announce(`Demo order #${orderNumber} sent to the pantry. Find it in Tickets.`);orderNumber++;cart={};review=false}else if(d.advance){const ticket=tickets.find(t=>t.id===Number(d.advance));ticket.status++;announce(`Order #${ticket.id} ${ticket.status===1?'is being made.':'has been served.'}`)}else if('repeat'in d){cart.tea=(cart.tea||0)+1;cart.biscuits=(cart.biscuits||0)+1;announce('Milk tea and biscuits added.')}else if('reset'in d){tickets.forEach(t=>t.status=t.id===23?1:t.id===22?2:0);announce('Demo tickets reset.')}render()});
-document.addEventListener('keydown',event=>{if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('input,textarea,select,[contenteditable]'))return;if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();switchTo(variants[(variants.indexOf(variant)+(event.key==='ArrowRight'?1:3))%4])}});
-render();
-</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Office Service — four layout prototypes</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #202522;
+        background: #f4f5f1;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        color: inherit;
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.4;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #1671ef;
+        outline-offset: 4px;
+      }
+      button {
+        min-height: 44px;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      button svg {
+        pointer-events: none;
+      }
+      svg {
+        display: block;
+      }
+      button {
+        transition: transform 0.12s;
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      .prototype-note {
+        padding: 9px 20px;
+        text-align: center;
+        background: #202522;
+        color: #fff;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .prototype-note strong {
+        color: #d8f58a;
+      }
+      #app {
+        min-height: calc(100dvh - 36px);
+        padding-bottom: 100px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        font-size: 21px;
+      }
+      .brand svg {
+        width: 28px;
+        height: 28px;
+      }
+      .muted {
+        color: #69716a;
+      }
+      .small {
+        font-size: 13px;
+      }
+      .button {
+        border: 0;
+        background: #244bde;
+        color: white;
+        border-radius: 8px;
+        padding: 14px 22px;
+        font-weight: 700;
+      }
+      .button:disabled {
+        opacity: 0.45;
+      }
+      .quiet {
+        background: transparent;
+        border: 1px solid #ccd1ca;
+        border-radius: 8px;
+        padding: 10px 16px;
+      }
+      .count {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .count button {
+        width: 44px;
+        height: 44px;
+        border: 1px solid #d7dbd4;
+        background: white;
+        border-radius: 8px;
+        font-size: 22px;
+      }
+      .count output {
+        font-weight: 700;
+        min-width: 18px;
+        text-align: center;
+      }
+      .empty {
+        color: #69716a;
+        padding: 24px 0;
+        line-height: 1.6;
+      }
+      .switcher {
+        position: fixed;
+        z-index: 20;
+        bottom: max(18px, env(safe-area-inset-bottom));
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px;
+        background: #fff;
+        color: #202522;
+        border: 1px solid #d3d7d1;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px #0002;
+        white-space: nowrap;
+      }
+      .switcher button {
+        background: none;
+        border: 0;
+        border-radius: 7px;
+        min-width: 44px;
+        padding: 8px 14px;
+        font-weight: 700;
+        font-size: 13px;
+      }
+      .switcher button[aria-pressed='true'] {
+        background: #202522;
+        color: white;
+      }
+      .switcher .arrow {
+        font-size: 20px;
+        padding: 8px;
+      }
+      .switcher-label {
+        padding: 0 10px;
+        font-size: 12px;
+        color: #69716a;
+      }
+      #announcement {
+        position: fixed;
+        z-index: 30;
+        top: 48px;
+        left: 50%;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        background: #202522;
+        color: white;
+        padding: 14px 22px;
+        border-radius: 8px;
+        font-size: 14px;
+        box-shadow: 0 4px 20px #0002;
+      }
+      #announcement:empty {
+        display: none;
+      }
+      /* A: a point-of-sale workstation. Navigation, product keys, receipt. */
+      .pos {
+        display: grid;
+        grid-template-columns: 88px minmax(0, 1fr) 330px;
+        min-height: calc(100dvh - 36px);
+        background: #edf1f7;
+      }
+      .pos-rail {
+        padding: 26px 12px;
+        background: #2349d9;
+        color: white;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .pos-rail > .brand {
+        margin-bottom: 20px;
+      }
+      .pos-rail button {
+        width: 64px;
+        border: 0;
+        background: transparent;
+        color: #cbd4ff;
+        border-radius: 10px;
+        padding: 10px 0;
+        font-size: 12px;
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+      }
+      .pos-rail button.active {
+        background: #fff;
+        color: #244bde;
+      }
+      .pos-rail svg {
+        width: 24px;
+        height: 24px;
+      }
+      .pos-user {
+        margin-top: auto;
+        border: 1px solid #8098f4;
+        border-radius: 50%;
+        padding: 12px;
+        font-size: 13px;
+      }
+      .pos-main {
+        padding: 32px;
+      }
+      .pos-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 36px;
+      }
+      .pos-head h1 {
+        font-size: 30px;
+        letter-spacing: -1px;
+      }
+      .pos-head p {
+        margin-top: 7px;
+        font-size: 14px;
+        color: #68748a;
+      }
+      .pos-time {
+        font-size: 13px;
+        color: #68748a;
+      }
+      .categories {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+      .categories button {
+        border: 0;
+        border-radius: 7px;
+        padding: 10px 20px;
+        background: #dfe5ef;
+        color: #59647a;
+        font-size: 14px;
+      }
+      .categories button.active {
+        background: #202e49;
+        color: #fff;
+      }
+      .product-keys {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .product-key {
+        display: flex;
+        flex-direction: column;
+        align-items: start;
+        justify-content: space-between;
+        min-height: 190px;
+        border: 0;
+        padding: 20px;
+        background: #fff;
+        border-radius: 12px;
+        text-align: left;
+        position: relative;
+      }
+      .product-key:hover {
+        outline: 2px solid #244bde;
+      }
+      .product-key .drink-art {
+        width: 66px;
+        height: 66px;
+        color: #3455b3;
+      }
+      .product-key:nth-child(3n + 2) .drink-art {
+        color: #8b653b;
+      }
+      .product-key:nth-child(3n) .drink-art {
+        color: #4b786b;
+      }
+      .product-key strong {
+        font-size: 18px;
+        display: block;
+        margin-top: 18px;
+      }
+      .product-key small {
+        display: block;
+        color: #748096;
+        margin-top: 5px;
+      }
+      .key-plus {
+        position: absolute;
+        right: 16px;
+        top: 18px;
+        font-size: 25px;
+        color: #93a0b6;
+      }
+      .key-quantity {
+        position: absolute;
+        right: 14px;
+        bottom: 18px;
+        background: #244bde;
+        color: #fff;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+      }
+      .receipt {
+        padding: 32px 24px;
+        background: white;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .receipt-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .receipt h2 {
+        font-size: 21px;
+      }
+      .receipt-id {
+        font-size: 13px;
+        color: #6e7989;
+      }
+      .receipt-place {
+        padding: 14px;
+        background: #f0f3f8;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.8;
+      }
+      .receipt-items {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 20px;
+      }
+      .receipt-items li {
+        display: grid;
+        gap: 10px;
+      }
+      .receipt-items .count {
+        justify-content: space-between;
+      }
+      .receipt-items .count button {
+        width: 36px;
+      }
+      .receipt-footer {
+        margin-top: auto;
+        border-top: 2px dashed #dce2eb;
+        padding-top: 20px;
+        display: grid;
+        gap: 18px;
+      }
+      .receipt-total {
+        display: flex;
+        justify-content: space-between;
+      }
+      .receipt-total strong {
+        font-size: 24px;
+      }
+      .receipt .button {
+        width: 100%;
+      }
+      .receipt-help {
+        font-size: 12px;
+        color: #6e7989;
+        text-align: center;
+      }
+      .pos-recent {
+        margin-top: 30px;
+        padding: 18px 0;
+        color: #647088;
+        font-size: 13px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #3b8268;
+        display: inline-block;
+      }
+      /* B: one decision at a time. No grid, no receipt rail. */
+      .kiosk {
+        background: #f7f0f2;
+        min-height: calc(100dvh - 36px);
+        padding: 28px 6vw 110px;
+      }
+      .kiosk-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .kiosk-cart {
+        background: #202522;
+        border: 0;
+        color: #fff;
+        border-radius: 30px;
+        padding: 12px 22px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+      }
+      .kiosk-cart span {
+        background: #f7f0f2;
+        color: #202522;
+        border-radius: 50%;
+        width: 26px;
+        height: 26px;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+      }
+      .kiosk-content {
+        max-width: 1100px;
+        margin: 65px auto 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+        gap: 8vw;
+      }
+      .kiosk-copy h1 {
+        font-size: clamp(44px, 5.5vw, 78px);
+        letter-spacing: -4px;
+        line-height: 1.02;
+        max-width: 500px;
+      }
+      .kiosk-copy > p {
+        margin-top: 20px;
+        font-size: 17px;
+        color: #796b70;
+        line-height: 1.6;
+      }
+      .drink-select {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 34px;
+      }
+      .drink-select button {
+        border: 1px solid #d6c8cd;
+        background: transparent;
+        padding: 12px 20px;
+        border-radius: 30px;
+        font-size: 14px;
+      }
+      .drink-select button.active {
+        background: #202522;
+        border-color: #202522;
+        color: #fff;
+      }
+      .kiosk-stage {
+        min-height: 380px;
+        background: #e9d8dd;
+        border-radius: 50% 50% 12px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+      .kiosk-stage > .drink-art {
+        width: 220px;
+        height: 220px;
+        color: #643747;
+      }
+      .kiosk-stage .cup-caption {
+        position: absolute;
+        bottom: 28px;
+        font-size: 13px;
+        color: #643747;
+      }
+      .kiosk-choice {
+        margin-top: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .kiosk-choice h2 {
+        font-size: 28px;
+        letter-spacing: -1px;
+      }
+      .kiosk-choice p {
+        margin-top: 5px;
+        color: #796b70;
+        font-size: 14px;
+      }
+      .kiosk .count button {
+        border-radius: 50%;
+        background: transparent;
+        border-color: #c8b5be;
+      }
+      .kiosk-add {
+        width: 100%;
+        margin-top: 22px;
+        border: 0;
+        background: #643747;
+        color: white;
+        border-radius: 30px;
+        padding: 17px;
+        font-weight: 700;
+      }
+      .kiosk-bottom {
+        max-width: 1100px;
+        margin: 42px auto 0;
+        border-top: 1px solid #dbcdd2;
+        padding-top: 20px;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        font-size: 13px;
+        color: #796b70;
+      }
+      .kiosk-review {
+        margin: 30px auto 0;
+        max-width: 1100px;
+        background: #fff;
+        padding: 24px;
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+      }
+      .kiosk-review p {
+        line-height: 1.8;
+      }
+      .kiosk-review .button {
+        background: #643747;
+        flex-shrink: 0;
+      }
+      /* C: the kitchen works in columns. The order, not the menu, is the main object. */
+      .dispatch {
+        background: #1c2020;
+        color: #edf0e8;
+        min-height: calc(100dvh - 36px);
+        padding: 26px 32px 110px;
+      }
+      .dispatch-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #3d4441;
+        padding-bottom: 24px;
+      }
+      .dispatch-header .brand {
+        color: #d4ed99;
+      }
+      .dispatch-meta {
+        font-size: 13px;
+        color: #a5b0a7;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .dispatch-title {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        padding: 32px 0;
+      }
+      .dispatch h1 {
+        font-size: 32px;
+        letter-spacing: -1px;
+      }
+      .dispatch-title p {
+        margin-top: 8px;
+        color: #a5b0a7;
+        font-size: 14px;
+      }
+      .dispatch-title .quiet {
+        border-color: #66715c;
+        color: #d4ed99;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+      }
+      .lane-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 0 16px;
+        font-size: 15px;
+      }
+      .lane-heading span {
+        background: #343c35;
+        min-width: 28px;
+        padding: 5px 8px;
+        text-align: center;
+        border-radius: 5px;
+        font-size: 13px;
+      }
+      .lane-list {
+        display: grid;
+        gap: 16px;
+        align-content: start;
+      }
+      .ticket {
+        background: #f3f2e9;
+        color: #282e25;
+        padding: 22px;
+        border-radius: 3px;
+      }
+      .ticket-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: #63695c;
+      }
+      .ticket-header strong {
+        font-size: 19px;
+        color: #282e25;
+      }
+      .ticket h3 {
+        margin-top: 24px;
+        font-size: 20px;
+      }
+      .ticket-address {
+        font-size: 13px;
+        margin-top: 5px;
+        color: #63695c;
+      }
+      .ticket ul {
+        list-style: none;
+        padding: 18px 0;
+        margin: 18px 0;
+        border-block: 1px dashed #bbbeb0;
+        display: grid;
+        gap: 14px;
+      }
+      .ticket li {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        font-size: 17px;
+      }
+      .ticket li strong {
+        font-size: 22px;
+        width: 25px;
+      }
+      .ticket-note {
+        font-size: 13px;
+        padding: 10px;
+        background: #e5e5d8;
+        margin-bottom: 20px;
+      }
+      .ticket-action {
+        width: 100%;
+        border: 0;
+        border-radius: 3px;
+        background: #292f26;
+        color: white;
+        font-weight: 700;
+        padding: 14px;
+      }
+      .lane:nth-child(2) .ticket {
+        background: #d7e7af;
+      }
+      .lane:nth-child(2) .ticket-action {
+        background: #324717;
+      }
+      .lane:nth-child(3) .ticket {
+        background: #2b332c;
+        color: #bcc7b9;
+      }
+      .lane:nth-child(3) .ticket-header strong,
+      .lane:nth-child(3) .ticket h3 {
+        color: #d8e0d2;
+      }
+      .lane:nth-child(3) .ticket-header,
+      .lane:nth-child(3) .ticket-address {
+        color: #a2b09b;
+      }
+      .lane:nth-child(3) .ticket ul {
+        border-color: #59634f;
+      }
+      .done-label {
+        font-size: 13px;
+        color: #c1db94;
+      }
+      .lane-empty {
+        border: 1px dashed #4b554b;
+        border-radius: 4px;
+        padding: 30px 18px;
+        color: #a5b0a7;
+        font-size: 14px;
+      }
+      /* D: a compact, menu-first sheet with a horizontal running order. */
+      .sheet {
+        background: #fff;
+        min-height: calc(100dvh - 36px);
+        padding: 0 5vw 190px;
+      }
+      .sheet-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 0;
+        border-bottom: 2px solid #202522;
+      }
+      .sheet-header .brand {
+        font-size: 18px;
+      }
+      .sheet-header p {
+        font-size: 13px;
+      }
+      .sheet-intro {
+        padding: 40px 0 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 24px;
+      }
+      .sheet h1 {
+        font-size: 48px;
+        letter-spacing: -2px;
+      }
+      .sheet-intro p {
+        font-size: 14px;
+        color: #69716a;
+        line-height: 1.8;
+      }
+      .sheet-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 70px;
+      }
+      .menu-group h2 {
+        font-size: 16px;
+        padding: 14px 0;
+        border-bottom: 1px solid #202522;
+        display: flex;
+        justify-content: space-between;
+      }
+      .menu-group h2 span {
+        font-size: 12px;
+        font-weight: 400;
+        color: #69716a;
+      }
+      .menu-lines {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .menu-line {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 20px;
+        padding: 20px 0;
+        border-bottom: 1px solid #e2e5dd;
+      }
+      .menu-line strong {
+        display: block;
+        font-size: 18px;
+      }
+      .menu-line small {
+        display: block;
+        color: #69716a;
+        margin-top: 6px;
+        font-size: 13px;
+      }
+      .menu-line .count button {
+        border: 0;
+        background: #f0f2ed;
+        border-radius: 0;
+      }
+      .menu-line .count button:last-child {
+        background: #202522;
+        color: white;
+      }
+      .sheet-history {
+        margin-top: 36px;
+        font-size: 13px;
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        color: #69716a;
+      }
+      .sheet-history strong {
+        color: #202522;
+      }
+      .order-strip {
+        position: fixed;
+        bottom: 92px;
+        left: 5vw;
+        right: 5vw;
+        padding: 18px 24px;
+        background: #edf2e6;
+        border: 1px solid #d2dbca;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        z-index: 10;
+      }
+      .strip-title {
+        border-right: 1px solid #c3cdbb;
+        padding-right: 24px;
+        flex-shrink: 0;
+      }
+      .strip-title strong {
+        display: block;
+      }
+      .strip-title small {
+        display: block;
+        margin-top: 5px;
+        color: #65735b;
+      }
+      .strip-summary {
+        font-size: 14px;
+        flex: 1;
+        line-height: 1.6;
+      }
+      .order-strip .button {
+        background: #202522;
+        border-radius: 0;
+      }
+      .sheet-footer {
+        margin-top: 40px;
+        font-size: 12px;
+        color: #69716a;
+      }
+      @media (min-width: 1500px) {
+        .pos-main {
+          padding: 40px 4vw;
+        }
+        .product-key {
+          min-height: 230px;
+        }
+        .product-key .drink-art {
+          width: 85px;
+          height: 85px;
+        }
+      }
+      @media (max-width: 1100px) {
+        .pos {
+          grid-template-columns: 72px minmax(0, 1fr) 285px;
+        }
+        .pos-main {
+          padding: 24px;
+        }
+        .product-keys {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .pos-rail {
+          padding-inline: 4px;
+        }
+        .receipt {
+          padding: 26px 20px;
+        }
+        .kiosk-content {
+          gap: 5vw;
+        }
+        .kiosk-stage {
+          min-height: 320px;
+        }
+        .sheet-columns {
+          gap: 35px;
+        }
+        .board {
+          gap: 14px;
+        }
+        .dispatch {
+          padding-inline: 20px;
+        }
+        .ticket {
+          padding: 18px;
+        }
+        .dispatch-meta span:first-child {
+          display: none;
+        }
+      }
+      @media (max-width: 760px) {
+        .prototype-note {
+          font-size: 11px;
+          padding-inline: 12px;
+        }
+        .switcher {
+          gap: 0;
+          bottom: 12px;
+          max-width: calc(100% - 16px);
+          padding: 5px;
+        }
+        .switcher-label {
+          display: none;
+        }
+        .switcher button {
+          padding: 8px 10px;
+          font-size: 12px;
+          min-width: 36px;
+        }
+        .switcher .arrow {
+          padding: 6px;
+          min-width: 32px;
+        }
+        .pos {
+          display: block;
+        }
+        .pos-rail {
+          padding: 12px 16px;
+          flex-direction: row;
+          gap: 12px;
+          justify-content: space-between;
+        }
+        .pos-rail > .brand {
+          margin: 0;
+        }
+        .pos-rail button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          width: auto;
+          padding: 8px 12px;
+        }
+        .pos-user {
+          margin: 0;
+          padding: 10px;
+        }
+        .pos-main {
+          padding: 24px 16px;
+        }
+        .pos-head {
+          margin-bottom: 24px;
+        }
+        .pos-head h1 {
+          font-size: 26px;
+        }
+        .pos-time {
+          display: none;
+        }
+        .product-keys {
+          gap: 10px;
+        }
+        .product-key {
+          min-height: 170px;
+          padding: 16px;
+        }
+        .product-key strong {
+          font-size: 17px;
+        }
+        .product-key .drink-art {
+          width: 56px;
+          height: 56px;
+        }
+        .categories {
+          gap: 6px;
+        }
+        .categories button {
+          padding: 8px 15px;
+        }
+        .receipt {
+          margin: 0 16px 20px;
+          border-radius: 12px;
+          gap: 20px;
+        }
+        .receipt-footer {
+          margin-top: 12px;
+        }
+        .pos-recent {
+          margin-top: 12px;
+        }
+        .kiosk {
+          padding: 22px 20px 110px;
+        }
+        .kiosk-header .brand {
+          font-size: 18px;
+        }
+        .kiosk-cart {
+          padding: 8px 14px;
+          font-size: 13px;
+        }
+        .kiosk-content {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+          margin-top: 35px;
+          align-items: stretch;
+        }
+        .kiosk-copy h1 {
+          font-size: 48px;
+          letter-spacing: -2px;
+          max-width: 330px;
+        }
+        .kiosk-copy > p {
+          font-size: 15px;
+          margin-top: 12px;
+        }
+        .drink-select {
+          margin-top: 20px;
+          gap: 6px;
+        }
+        .drink-select button {
+          padding: 10px 15px;
+          font-size: 13px;
+        }
+        .kiosk-stage {
+          min-height: 250px;
+          max-width: 400px;
+          width: 100%;
+          margin: auto;
+        }
+        .kiosk-stage > .drink-art {
+          width: 160px;
+          height: 160px;
+        }
+        .kiosk-stage .cup-caption {
+          bottom: 22px;
+        }
+        .kiosk-choice {
+          margin-top: 22px;
+        }
+        .kiosk-choice h2 {
+          font-size: 24px;
+        }
+        .kiosk-bottom {
+          margin-top: 28px;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .kiosk-review {
+          flex-direction: column;
+          align-items: stretch;
+          padding: 18px;
+        }
+        .dispatch {
+          padding: 20px 16px 110px;
+        }
+        .dispatch-header {
+          padding-bottom: 18px;
+        }
+        .dispatch-header .brand {
+          font-size: 18px;
+        }
+        .dispatch-meta {
+          font-size: 12px;
+        }
+        .dispatch-title {
+          padding: 26px 0;
+          align-items: center;
+        }
+        .dispatch h1 {
+          font-size: 27px;
+        }
+        .dispatch-title p {
+          max-width: 200px;
+          line-height: 1.5;
+        }
+        .dispatch-title .quiet {
+          padding: 10px;
+          font-size: 12px;
+        }
+        .board {
+          grid-template-columns: 1fr;
+          gap: 30px;
+        }
+        .lane-list {
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+        }
+        .ticket h3 {
+          margin-top: 18px;
+        }
+        .sheet {
+          padding: 0 20px 220px;
+        }
+        .sheet-header {
+          padding: 20px 0;
+        }
+        .sheet-header p {
+          max-width: 130px;
+          text-align: right;
+          font-size: 12px;
+        }
+        .sheet-intro {
+          padding: 30px 0 20px;
+          display: block;
+        }
+        .sheet h1 {
+          font-size: 40px;
+        }
+        .sheet-intro p {
+          margin-top: 12px;
+        }
+        .sheet-columns {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .menu-line {
+          padding: 16px 0;
+          gap: 10px;
+        }
+        .menu-line strong {
+          font-size: 17px;
+        }
+        .menu-line .count {
+          gap: 8px;
+        }
+        .sheet-history {
+          gap: 12px;
+          line-height: 1.5;
+        }
+        .order-strip {
+          left: 12px;
+          right: 12px;
+          bottom: 82px;
+          padding: 14px;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .strip-title {
+          padding-right: 12px;
+          font-size: 13px;
+        }
+        .strip-summary {
+          font-size: 12px;
+          min-width: 130px;
+        }
+        .order-strip .button {
+          width: 100%;
+          padding: 12px;
+        }
+        .sheet-footer {
+          line-height: 1.6;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="prototype-note">
+      <strong>Layout playground</strong> · Sample data, no real orders. Four different ways to work.
+    </div>
+    <main id="app"></main>
+    <div id="announcement" role="status" aria-live="polite"></div>
+    <aside class="switcher" aria-label="Prototype layouts">
+      <button class="arrow" data-switch="prev" aria-label="Previous layout">←</button>
+      <span class="switcher-label">Try a layout</span>
+      <button data-variant="counter">Counter</button><button data-variant="kiosk">Kiosk</button
+      ><button data-variant="board">Tickets</button><button data-variant="sheet">Menu</button>
+      <button class="arrow" data-switch="next" aria-label="Next layout">→</button>
+    </aside>
+    <script>
+      // Throwaway prototype: four independent layouts; shared in-memory sample orders only.
+      const items = [
+        {
+          id: 'tea',
+          name: 'Milk tea',
+          detail: 'Freshly brewed · one cup',
+          group: 'Drinks',
+          shape: 'cup',
+        },
+        {
+          id: 'black',
+          name: 'Black tea',
+          detail: 'Light & simple · one cup',
+          group: 'Drinks',
+          shape: 'cup',
+        },
+        {
+          id: 'coffee',
+          name: 'Coffee',
+          detail: 'A little pick-me-up · one cup',
+          group: 'Drinks',
+          shape: 'cup',
+        },
+        {
+          id: 'water',
+          name: 'Water',
+          detail: 'Room temperature · one glass',
+          group: 'Drinks',
+          shape: 'glass',
+        },
+        {
+          id: 'biscuits',
+          name: 'Biscuits',
+          detail: 'Something to go with your tea',
+          group: 'Snacks',
+          shape: 'biscuit',
+        },
+        {
+          id: 'muri',
+          name: 'Muri mix',
+          detail: 'Light, crunchy · one bowl',
+          group: 'Snacks',
+          shape: 'bowl',
+        },
+      ];
+      const variants = ['counter', 'kiosk', 'board', 'sheet'];
+      const query = new URLSearchParams(location.search);
+      let variant = variants.includes(query.get('variant')) ? query.get('variant') : 'counter';
+      let cart = {},
+        category = 'All',
+        chosen = 'tea',
+        quantity = 1,
+        review = false,
+        orderNumber = 27;
+      let tickets = [
+        {
+          id: 24,
+          name: 'Nadia Rahman',
+          place: 'Floor 3 · Desk 12',
+          lines: [
+            ['Milk tea', 2],
+            ['Biscuits', 1],
+          ],
+          note: 'One tea without sugar',
+          status: 0,
+        },
+        {
+          id: 25,
+          name: 'Arif Hasan',
+          place: 'Floor 2 · Meeting room',
+          lines: [['Coffee', 3]],
+          note: '',
+          status: 0,
+        },
+        {
+          id: 23,
+          name: 'Farah Ahmed',
+          place: 'Floor 4 · Desk 08',
+          lines: [
+            ['Black tea', 1],
+            ['Muri mix', 1],
+          ],
+          note: '',
+          status: 1,
+        },
+        {
+          id: 22,
+          name: 'Rafiq Islam',
+          place: 'Floor 1 · Reception',
+          lines: [['Water', 2]],
+          note: '',
+          status: 2,
+        },
+      ];
+      const app = document.getElementById('app');
+      const cup =
+        '<path d="M22 42h49v22c0 17-49 17-49 0V42Z"/><path d="M71 45h7c17 0 17 20-7 20M16 84h62M37 16v14M52 12v18"/>';
+      function art(shape = 'cup') {
+        return `<svg class="drink-art" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${shape === 'glass' ? '<path d="M30 20h40l-5 64H35L30 20Z"/><path d="M33 46c12 7 22-7 35 0M39 72h16"/>' : shape === 'biscuit' ? '<rect x="20" y="24" width="53" height="53" rx="10"/><path d="m30 24 3-8h45l6 9v44l-11 8M35 39h1M56 39h1M45 51h1M35 64h1M56 64h1"/>' : shape === 'bowl' ? '<path d="M15 46h70c-4 41-65 41-70 0ZM28 38l6-10 9 9 8-15 10 13 9-6 7 10M40 84h21"/>' : cup}</svg>`;
+      }
+      function logo() {
+        return `<div class="brand">${art()}<span>Office Service</span></div>`;
+      }
+      function count(id, n) {
+        return `<div class="count"><button data-minus="${id}" aria-label="Remove one ${items.find((i) => i.id === id).name}" ${n === 0 ? 'disabled' : ''}>−</button><output aria-label="${items.find((i) => i.id === id).name} quantity">${n}</output><button data-plus="${id}" aria-label="Add one ${items.find((i) => i.id === id).name}">+</button></div>`;
+      }
+      function total() {
+        return Object.values(cart).reduce((a, b) => a + b, 0);
+      }
+      function summary() {
+        return items
+          .filter((i) => cart[i.id])
+          .map((i) => `${cart[i.id]} × ${i.name}`)
+          .join(' · ');
+      }
+      function announce(message) {
+        document.getElementById('announcement').textContent = message;
+      }
+      function pos() {
+        return `<div class="pos"><aside class="pos-rail">${art()}<button class="active" data-category="All">${art('bowl')}Menu</button><button data-variant="board">${art('biscuit')}Orders</button><span class="pos-user">NR</span></aside><section class="pos-main"><header class="pos-head"><div><h1>What can we get you?</h1><p>A quick break, delivered to your desk.</p></div><span class="pos-time">Office pantry<br>Open until 5 pm</span></header><div class="categories" role="group" aria-label="Menu category">${['All', 'Drinks', 'Snacks'].map((c) => `<button class="${category === c ? 'active' : ''}" aria-pressed="${category === c}" data-category="${c}">${c}</button>`).join('')}</div><div class="product-keys">${items
+          .filter((i) => category === 'All' || i.group === category)
+          .map(
+            (i) =>
+              `<button class="product-key" data-plus="${i.id}" aria-label="Add ${i.name}">${art(i.shape)}<span class="key-plus">+</span><span><strong>${i.name}</strong><small>${i.group === 'Drinks' ? 'One ' + (i.id === 'water' ? 'glass' : 'cup') : 'One serving'}</small></span>${cart[i.id] ? `<span class="key-quantity">${cart[i.id]}</span>` : ''}</button>`,
+          )
+          .join(
+            '',
+          )}</div><p class="pos-recent"><span class="live-dot"></span>Office pantry is taking orders</p></section><aside class="receipt" aria-label="Current order"><div class="receipt-top"><h2>Your tray</h2><span class="receipt-id">#${orderNumber}</span></div><p class="receipt-place"><strong>Nadia Rahman</strong><br>Floor 3 · Desk 12</p>${
+          total()
+            ? `<ul class="receipt-items">${items
+                .filter((i) => cart[i.id])
+                .map((i) => `<li><strong>${i.name}</strong>${count(i.id, cart[i.id])}</li>`)
+                .join('')}</ul>`
+            : '<p class="empty">Your tray is empty.<br>Tap a menu button to start.</p>'
+        }<div class="receipt-footer"><div class="receipt-total"><span>Total items</span><strong>${total()}</strong></div><button class="button" data-place ${!total() ? 'disabled' : ''}>Send to pantry →</button><p class="receipt-help">Complimentary office refreshments</p></div></aside></div>`;
+      }
+      function kiosk() {
+        const item = items.find((i) => i.id === chosen);
+        return `<div class="kiosk"><header class="kiosk-header">${logo()}<button class="kiosk-cart" data-review aria-expanded="${review}">Your order <span>${total()}</span></button></header><div class="kiosk-content"><section class="kiosk-copy"><h1>Time for<br>a little break.</h1><p>Your favourite refreshment.<br>Just a couple of taps away.</p><div class="drink-select" role="group" aria-label="Choose a refreshment">${items
+          .filter((i) => i.group === 'Drinks')
+          .map(
+            (i) =>
+              `<button class="${chosen === i.id ? 'active' : ''}" aria-pressed="${chosen === i.id}" data-choose="${i.id}">${i.name}</button>`,
+          )
+          .join(
+            '',
+          )}</div></section><section><div class="kiosk-stage">${art(item.shape)}<span class="cup-caption">Made fresh in your office pantry</span></div><div class="kiosk-choice"><div><h2>${item.name}</h2><p>${item.detail}</p></div><div class="count"><button data-quantity="-1" aria-label="Decrease serving count" ${quantity === 1 ? 'disabled' : ''}>−</button><output aria-label="Servings">${quantity}</output><button data-quantity="1" aria-label="Increase serving count">+</button></div></div><button class="kiosk-add" data-add-choice>Add ${quantity} to your order →</button></section></div>${review ? `<section class="kiosk-review" aria-label="Review order"><p><strong>Your order · ${total()} items</strong><br>${summary() || 'Choose a drink to get started.'}</p><button class="button" data-place ${!total() ? 'disabled' : ''}>Place order →</button></section>` : ''}<footer class="kiosk-bottom"><span>Delivering to <strong>Floor 3 · Desk 12</strong></span><span>Tea. Coffee. A moment to yourself.</span></footer></div>`;
+      }
+      function board() {
+        return `<div class="dispatch"><header class="dispatch-header">${logo()}<div class="dispatch-meta"><span>Pantry team</span><span><span class="live-dot"></span> On shift</span></div></header><div class="dispatch-title"><div><h1>The pass</h1><p>${tickets.filter((t) => t.status < 2).length} orders to take care of. Oldest first.</p></div><button class="quiet" data-reset>Reset demo</button></div><div class="board">${[
+          'Just in',
+          'Making now',
+          'Served',
+        ]
+          .map(
+            (label, status) =>
+              `<section class="lane"><h2 class="lane-heading">${label}<span>${tickets.filter((t) => t.status === status).length}</span></h2><div class="lane-list">${
+                tickets
+                  .filter((t) => t.status === status)
+                  .map(
+                    (t) =>
+                      `<article class="ticket"><div class="ticket-header"><strong>#${t.id}</strong><span>${status === 2 ? 'Completed' : 'Office order'}</span></div><h3>${t.name}</h3><p class="ticket-address">${t.place}</p><ul>${t.lines.map(([name, n]) => `<li><strong>${n}</strong> ${name}</li>`).join('')}</ul>${t.note ? `<p class="ticket-note">${t.note}</p>` : ''}${status < 2 ? `<button class="ticket-action" data-advance="${t.id}">${status === 0 ? 'Start making' : 'Mark as served'} →</button>` : '<p class="done-label">✓ Delivered to desk</p>'}</article>`,
+                  )
+                  .join('') || '<p class="lane-empty">All clear here.</p>'
+              }</div></section>`,
+          )
+          .join('')}</div></div>`;
+      }
+      function sheet() {
+        return `<div class="sheet"><header class="sheet-header">${logo()}<p>Office pantry<br>Weekdays, 9 am – 5 pm</p></header><section class="sheet-intro"><h1>The daily menu.</h1><p>Pick your refreshments. We’ll bring them over.<br><strong>Nadia · Floor 3 · Desk 12</strong></p></section><div class="sheet-columns">${[
+          'Drinks',
+          'Snacks',
+        ]
+          .map(
+            (group) =>
+              `<section class="menu-group"><h2>${group}<span>Complimentary</span></h2><ul class="menu-lines">${items
+                .filter((i) => i.group === group)
+                .map(
+                  (i) =>
+                    `<li class="menu-line"><div><strong>${i.name}</strong><small>${i.detail}</small></div>${count(i.id, cart[i.id] || 0)}</li>`,
+                )
+                .join('')}</ul></section>`,
+          )
+          .join(
+            '',
+          )}</div><section class="sheet-history" aria-label="Recent order"><strong>Last order</strong><span>Milk tea × 1 · Biscuits × 1</span><span>Delivered to your desk</span><button class="quiet" data-repeat>Order again +</button></section><p class="sheet-footer">Everything is prepared in the office pantry. Need something specific? Ask the pantry team.</p><aside class="order-strip" aria-label="Current order"><div class="strip-title"><strong>Your order</strong><small>${total()} items</small></div><p class="strip-summary">${summary() || 'Use + to add something from the menu.'}</p><button class="button" data-place ${!total() ? 'disabled' : ''}>Place order →</button></aside></div>`;
+      }
+      function render() {
+        const focus = document.activeElement;
+        const focusKey = focus?.closest('button')?.outerHTML;
+        app.innerHTML = { counter: pos, kiosk, board, sheet }[variant]();
+        document
+          .querySelectorAll('.switcher [data-variant]')
+          .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.variant === variant)));
+        document.title = `Office Service · ${variant} prototype`;
+        if (focusKey) {
+          const replacement = [...app.querySelectorAll('button')].find(
+            (b) => b.outerHTML === focusKey,
+          );
+          replacement?.focus({ preventScroll: true });
+        }
+      }
+      function switchTo(next) {
+        variant = next;
+        const url = new URL(location.href);
+        url.searchParams.set('variant', variant);
+        history.replaceState(null, '', url);
+        announce('');
+        render();
+        window.scrollTo(0, 0);
+      }
+      document.addEventListener('click', (event) => {
+        const b = event.target.closest('button');
+        if (!b || b.disabled) return;
+        const d = b.dataset;
+        if (d.variant) {
+          switchTo(d.variant);
+          return;
+        }
+        if (d.switch) {
+          switchTo(variants[(variants.indexOf(variant) + (d.switch === 'next' ? 1 : 3)) % 4]);
+          return;
+        }
+        announce('');
+        if (d.plus) {
+          cart[d.plus] = (cart[d.plus] || 0) + 1;
+        } else if (d.minus) {
+          cart[d.minus] = Math.max(0, (cart[d.minus] || 0) - 1);
+        } else if (d.category) {
+          category = d.category;
+        } else if (d.choose) {
+          chosen = d.choose;
+          quantity = 1;
+        } else if (d.quantity) {
+          quantity = Math.max(1, quantity + Number(d.quantity));
+        } else if ('addChoice' in d) {
+          cart[chosen] = (cart[chosen] || 0) + quantity;
+          review = true;
+          announce(`${quantity} ${items.find((i) => i.id === chosen).name} added to your order.`);
+        } else if ('review' in d) {
+          review = !review;
+        } else if ('place' in d && total()) {
+          tickets.push({
+            id: orderNumber,
+            name: 'Nadia Rahman',
+            place: 'Floor 3 · Desk 12',
+            lines: items.filter((i) => cart[i.id]).map((i) => [i.name, cart[i.id]]),
+            note: '',
+            status: 0,
+          });
+          announce(`Demo order #${orderNumber} sent to the pantry. Find it in Tickets.`);
+          orderNumber++;
+          cart = {};
+          review = false;
+        } else if (d.advance) {
+          const ticket = tickets.find((t) => t.id === Number(d.advance));
+          ticket.status++;
+          announce(
+            `Order #${ticket.id} ${ticket.status === 1 ? 'is being made.' : 'has been served.'}`,
+          );
+        } else if ('repeat' in d) {
+          cart.tea = (cart.tea || 0) + 1;
+          cart.biscuits = (cart.biscuits || 0) + 1;
+          announce('Milk tea and biscuits added.');
+        } else if ('reset' in d) {
+          tickets.forEach((t) => (t.status = t.id === 23 ? 1 : t.id === 22 ? 2 : 0));
+          announce('Demo tickets reset.');
+        }
+        render();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.target.closest('input,textarea,select,[contenteditable]')
+        )
+          return;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+          event.preventDefault();
+          switchTo(
+            variants[(variants.indexOf(variant) + (event.key === 'ArrowRight' ? 1 : 3)) % 4],
+          );
+        }
+      });
+      render();
+    </script>
+  </body>
 </html>

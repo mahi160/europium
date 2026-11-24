@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { PublicUser } from '@office-service/shared';
@@ -27,9 +34,11 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
     let wasLive = false;
     let connected = false;
     let authoritative = false;
-    const scoped = (query: { queryKey: readonly unknown[] }) => serverKeys.includes(String(query.queryKey[0])) && query.queryKey[1] === user.id;
+    const scoped = (query: { queryKey: readonly unknown[] }) =>
+      serverKeys.includes(String(query.queryKey[0])) && query.queryKey[1] === user.id;
     const mark = (next: Status) => {
-      if (!disposed) setStatus(!navigator.onLine ? 'offline' : document.hidden ? 'suspended' : next);
+      if (!disposed)
+        setStatus(!navigator.onLine ? 'offline' : document.hidden ? 'suspended' : next);
     };
     const reconcile = async (full: boolean, session = false, keys: string[] = []) => {
       requested = true;
@@ -51,14 +60,20 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
           if (verifySession) {
             const result = await api('/auth/get-session', sessionResponse);
             if (disposed) break;
-            const changed = !result.user || result.user.id !== user.id || result.user.role !== user.role
-              || result.user.language !== user.language || result.user.mustChangePassword;
+            const changed =
+              !result.user ||
+              result.user.id !== user.id ||
+              result.user.role !== user.role ||
+              result.user.language !== user.language ||
+              result.user.mustChangePassword;
             if (changed) {
               source?.close();
               source = null;
               clearTimeout(watchdog);
               connected = false;
-              await client.cancelQueries({ predicate: (query) => query.queryKey[0] === 'session' || scoped(query) });
+              await client.cancelQueries({
+                predicate: (query) => query.queryKey[0] === 'session' || scoped(query),
+              });
               client.removeQueries({ predicate: scoped });
             }
             if (disposed) break;
@@ -66,7 +81,8 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
             if (changed) break;
           }
           if (refresh || keys.size) {
-            const predicate = (query: Parameters<typeof scoped>[0]) => scoped(query) && (refresh || keys.has(String(query.queryKey[0])));
+            const predicate = (query: Parameters<typeof scoped>[0]) =>
+              scoped(query) && (refresh || keys.has(String(query.queryKey[0])));
             await client.cancelQueries({ predicate });
             if (disposed) break;
             await client.invalidateQueries({ predicate }, { throwOnError: true });
@@ -83,8 +99,9 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
         clearTimeout(resumeGrace);
         resumeGrace = undefined;
         mark(navigator.onLine ? 'disconnected' : 'offline');
+      } finally {
+        running = false;
       }
-      finally { running = false; }
     };
     const arm = () => {
       if (disposed) return;
@@ -103,8 +120,14 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       connected = false;
       authoritative = false;
       if (disposed) return;
-      if (!navigator.onLine) { mark('offline'); return; }
-      if (document.hidden) { mark('suspended'); return; }
+      if (!navigator.onLine) {
+        mark('offline');
+        return;
+      }
+      if (document.hidden) {
+        mark('suspended');
+        return;
+      }
       if (quickResume) {
         mark('current');
         resumeGrace = setTimeout(() => {
@@ -115,18 +138,33 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       const connection = new EventSource('/api/events');
       source = connection;
       const active = () => !disposed && source === connection;
-      connection.addEventListener('ready', () => { if (active()) { connected = true; arm(); void reconcile(true, true); } });
+      connection.addEventListener('ready', () => {
+        if (active()) {
+          connected = true;
+          arm();
+          void reconcile(true, true);
+        }
+      });
       connection.addEventListener('change', (event) => {
         if (!active()) return;
         arm();
         let data: unknown;
-        try { data = JSON.parse(event.data); } catch { data = null; }
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          data = null;
+        }
         const kind = data && typeof data === 'object' && 'kind' in data ? data.kind : null;
         if (kind === 'order') void reconcile(false, false, ['orders', 'work-orders']);
         else if (kind === 'menu') void reconcile(false, false, ['menu']);
         else void reconcile(true, true);
       });
-      connection.addEventListener('heartbeat', () => { if (active()) { arm(); void reconcile(false, true); } });
+      connection.addEventListener('heartbeat', () => {
+        if (active()) {
+          arm();
+          void reconcile(false, true);
+        }
+      });
       connection.onerror = () => {
         if (!active()) return;
         connected = false;
@@ -187,15 +225,26 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       document.removeEventListener('visibilitychange', resume);
     };
   }, [client, user.id, user.role, user.language, attempt]);
-  return <RealtimeContext.Provider value={{ status, retry: () => setAttempt((value) => value + 1) }}>{children}</RealtimeContext.Provider>;
+  return (
+    <RealtimeContext.Provider value={{ status, retry: () => setAttempt((value) => value + 1) }}>
+      {children}
+    </RealtimeContext.Provider>
+  );
 }
 
 export function RealtimeStatus() {
   const { t } = useTranslation();
   const { status, retry } = useContext(RealtimeContext);
-  return <div className="flex flex-wrap items-center gap-2" role="status" data-realtime={status}>
-    <Badge variant="outline">{t('realtime.' + status)}</Badge>{(status === 'disconnected' || status === 'offline') && <Button variant="ghost" onClick={retry}>{t('retry')}</Button>}
-  </div>;
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="status" data-realtime={status}>
+      <Badge variant="outline">{t('realtime.' + status)}</Badge>
+      {(status === 'disconnected' || status === 'offline') && (
+        <Button variant="ghost" onClick={retry}>
+          {t('retry')}
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function subscribeNetwork(notify: () => void) {
@@ -206,4 +255,6 @@ function subscribeNetwork(notify: () => void) {
     window.removeEventListener('offline', notify);
   };
 }
-export function useOffline() { return useSyncExternalStore(subscribeNetwork, () => !navigator.onLine); }
+export function useOffline() {
+  return useSyncExternalStore(subscribeNetwork, () => !navigator.onLine);
+}

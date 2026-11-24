@@ -4,7 +4,9 @@ test('setup, login, administration and localized mobile account', async ({ page 
   await page.getByLabel('ভাষা').selectOption('en');
   const setup = await page.request.get('/api/setup');
   if ((await setup.json()).setupRequired) {
-    await page.getByLabel('Setup token', { exact: false }).fill('browser-test-setup-token-32-characters');
+    await page
+      .getByLabel('Setup token', { exact: false })
+      .fill('browser-test-setup-token-32-characters');
     await page.getByLabel('Full name').fill('অফিস প্রশাসক');
     await page.getByLabel('Username', { exact: false }).fill('office_admin');
     await page.getByLabel(/^Password \*$/).fill('browser-admin-password-123');
@@ -15,7 +17,9 @@ test('setup, login, administration and localized mobile account', async ({ page 
   await page.getByLabel('Username', { exact: false }).fill('office_admin');
   await page.getByLabel(/^PIN or password \*$/).fill('browser-admin-password-123');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: "Today's refreshments", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: "Today's refreshments", exact: true }),
+  ).toBeVisible();
   await page.getByRole('link', { name: 'Administrator', exact: true }).click();
   await expect(page).toHaveURL('/admin');
   await page.getByRole('button', { name: 'Add person', exact: true }).click();
@@ -31,16 +35,39 @@ test('setup, login, administration and localized mobile account', async ({ page 
   await page.screenshot({ path: 'test-results/profile-desktop.png', fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByLabel('Language', { exact: true }).selectOption('bn');
-  await expect(page.locator('html')).toHaveAttribute('lang','bn-BD');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'bn-BD');
   await expect(page.getByRole('heading', { name: 'প্রশাসক', exact: true })).toBeVisible();
   await page.getByRole('banner').getByRole('button', { name: 'অফিস প্রশাসক', exact: true }).click();
   await expect(page.getByRole('button', { name: 'পাসওয়ার্ড বদলান', exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
   await page.screenshot({ path: 'test-results/profile-phone.png', fullPage: true });
   await page.getByRole('button', { name: 'বের হন', exact: true }).click();
-  expect((await page.request.post('/api/auth/login', { headers: { Origin: 'http://localhost:5183' }, data: { username: 'office_admin', password: 'browser-admin-password-123' } })).ok()).toBe(true);
-  expect((await page.request.patch('/api/me', { headers: { Origin: 'http://localhost:5183' }, data: { language: 'en' } })).ok()).toBe(true);
-  expect((await page.request.post('/api/auth/logout', { headers: { Origin: 'http://localhost:5183' }, data: {} })).ok()).toBe(true);
+  expect(
+    (
+      await page.request.post('/api/auth/login', {
+        headers: { Origin: 'http://localhost:5183' },
+        data: { username: 'office_admin', password: 'browser-admin-password-123' },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.patch('/api/me', {
+        headers: { Origin: 'http://localhost:5183' },
+        data: { language: 'en' },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await page.request.post('/api/auth/logout', {
+        headers: { Origin: 'http://localhost:5183' },
+        data: {},
+      })
+    ).ok(),
+  ).toBe(true);
   await expect(page.getByRole('heading', { name: 'প্রবেশ করুন', exact: true })).toBeVisible();
   await page.getByLabel('ব্যবহারকারীর নাম', { exact: false }).fill('rahim');
   await page.getByLabel(/^পিন বা পাসওয়ার্ড \*$/).fill('2468');
@@ -52,5 +79,4 @@ test('setup, login, administration and localized mobile account', async ({ page 
   await expect(page).toHaveURL('/');
   await expect(page.getByRole('heading', { name: 'আজকের চা-নাস্তা', exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'প্রশাসক', exact: true })).toHaveCount(0);
-
 });

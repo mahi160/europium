@@ -84,14 +84,14 @@ Each item contains:
 
 Example items:
 
-| Item     | Bangla  |
-| -------- | ------- |
+| Item     | Bangla |
+| -------- | ------ |
 | Tea      | চা      |
-| Milk Tea | দুধ চা  |
-| Coffee   | কফি     |
+| Milk Tea | দুধ চা   |
+| Coffee   | কফি    |
 | Water    | পানি    |
-| Biscuit  | বিস্কুট |
-| Snacks   | নাস্তা  |
+| Biscuit  | বিস্কুট  |
+| Snacks   | নাস্তা    |
 
 ### 4.3 Place Order
 
@@ -154,13 +154,13 @@ Alternative transitions:
 
 Display statuses in Bangla:
 
-| Internal Status | Display Text      |
-| --------------- | ----------------- |
+| Internal Status | Display Text    |
+| --------------- | --------------- |
 | PENDING         | অপেক্ষমাণ         |
 | ACCEPTED        | গ্রহণ করা হয়েছে   |
 | DELIVERED       | পৌঁছে দেওয়া হয়েছে |
 | REJECTED        | বাতিল করা হয়েছে   |
-| CANCELLED       | অর্ডার বাতিল      |
+| CANCELLED       | অর্ডার বাতিল       |
 
 Order status changes must appear in real time.
 

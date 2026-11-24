@@ -1,6 +1,25 @@
-import { chownSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chownSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
-import { copyCaddy, decryptArchive, encryptArchive, pack, protectedPassphrase, restoreVolumes, snapshot, unpack, verifyDatabase, verifyIdentity } from './operations';
+import {
+  copyCaddy,
+  decryptArchive,
+  encryptArchive,
+  pack,
+  protectedPassphrase,
+  restoreVolumes,
+  snapshot,
+  unpack,
+  verifyDatabase,
+  verifyIdentity,
+} from './operations';
 
 process.umask(0o077);
 try {
@@ -36,10 +55,15 @@ try {
     verifyDatabase('/data/office.sqlite');
   } else if (command === 'images') {
     const [api, web] = process.argv.slice(3);
-    const valid = (value: string) => /^ghcr\.io\/[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$/.test(value);
+    const valid = (value: string) =>
+      /^ghcr\.io\/[a-z0-9][a-z0-9._/-]*@sha256:[a-f0-9]{64}$/.test(value);
     if (!api || !web || !valid(api) || !valid(web)) throw new Error('Invalid image references');
     let env = readFileSync('/work/.env', 'utf8');
-    for (const [key, value] of [['APP_IMAGE', api], ['WEB_IMAGE', web], ['IMAGE_SOURCE', 'registry']]) {
+    for (const [key, value] of [
+      ['APP_IMAGE', api],
+      ['WEB_IMAGE', web],
+      ['IMAGE_SOURCE', 'registry'],
+    ]) {
       const expression = new RegExp(`^${key}=.*$`, 'gm');
       if ([...env.matchAll(expression)].length !== 1) throw new Error('Invalid configuration');
       env = env.replace(expression, `${key}=${value}`);
@@ -48,11 +72,14 @@ try {
     const owner = statSync('/work');
     chownSync('/work/next.env', owner.uid, owner.gid);
   } else if (command === 'cleanup') {
-    for (const name of readdirSync('/work')) rmSync(join('/work', name), { recursive: true, force: true });
+    for (const name of readdirSync('/work'))
+      rmSync(join('/work', name), { recursive: true, force: true });
   } else {
     throw new Error('Unknown operation');
   }
 } catch {
-  process.stderr.write('Operation failed; no backup success is implied. Preserve original data and consult docs/backups.md before retrying.\n');
+  process.stderr.write(
+    'Operation failed; no backup success is implied. Preserve original data and consult docs/backups.md before retrying.\n',
+  );
   process.exitCode = 1;
 }

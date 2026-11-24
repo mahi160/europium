@@ -10,41 +10,96 @@ const temporaryPassword = '0007';
 const personalPassword = '0042';
 
 async function signIn(page: Page, username: string, password: string) {
-  expect((await page.request.post('/api/auth/login', { headers, data: { username, password } })).ok()).toBe(true);
+  expect(
+    (await page.request.post('/api/auth/login', { headers, data: { username, password } })).ok(),
+  ).toBe(true);
 }
 
 async function office(page: Page, browser: Browser) {
-  const setup = z.object({ setupRequired: z.boolean() }).parse(await (await page.request.get('/api/setup')).json());
+  const setup = z
+    .object({ setupRequired: z.boolean() })
+    .parse(await (await page.request.get('/api/setup')).json());
   if (setup.setupRequired) {
-    expect((await page.request.post('/api/setup', { headers, data: setupSchema.parse({
-      setupToken: 'browser-test-setup-token-32-characters', username: 'office_admin', password: adminPassword,
-      name: 'Office administrator', language: 'en', floor: '', desk: '',
-    }) })).status()).toBe(201);
+    expect(
+      (
+        await page.request.post('/api/setup', {
+          headers,
+          data: setupSchema.parse({
+            setupToken: 'browser-test-setup-token-32-characters',
+            username: 'office_admin',
+            password: adminPassword,
+            name: 'Office administrator',
+            language: 'en',
+            floor: '',
+            desk: '',
+          }),
+        })
+      ).status(),
+    ).toBe(201);
   }
   await signIn(page, 'office_admin', adminPassword);
   const unique = randomUUID().replaceAll('-', '').slice(0, 12);
   const name = 'Cancellation tea ' + unique;
-  expect((await page.request.post('/api/menu', { headers, data: {
-    name, category: 'tea', unit: 'কাপ', available: true, archived: false,
-  } })).status()).toBe(201);
+  expect(
+    (
+      await page.request.post('/api/menu', {
+        headers,
+        data: {
+          name,
+          category: 'tea',
+          unit: 'কাপ',
+          available: true,
+          archived: false,
+        },
+      })
+    ).status(),
+  ).toBe(201);
   const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
   try {
     const employee = await contexts[0].newPage();
     const staff = await contexts[1].newPage();
     async function addPerson(role: 'employee' | 'staff', client: Page, suffix = '') {
       const username = 'cancel_' + role + '_' + unique + suffix;
-      const response = await page.request.post('/api/users', { headers, data: {
-        name: username, username, password: temporaryPassword, role, language: 'en', floor: '3', desk: unique,
-      } });
+      const response = await page.request.post('/api/users', {
+        headers,
+        data: {
+          name: username,
+          username,
+          password: temporaryPassword,
+          role,
+          language: 'en',
+          floor: '3',
+          desk: unique,
+        },
+      });
       expect(response.status()).toBe(201);
       await signIn(client, username, temporaryPassword);
-      expect((await client.request.post('/api/auth/change-password', { headers, data: { currentPassword: temporaryPassword, newPassword: personalPassword } })).ok()).toBe(true);
+      expect(
+        (
+          await client.request.post('/api/auth/change-password', {
+            headers,
+            data: { currentPassword: temporaryPassword, newPassword: personalPassword },
+          })
+        ).ok(),
+      ).toBe(true);
     }
     await addPerson('employee', employee);
     await addPerson('staff', staff);
     await Promise.all([employee.goto('/'), staff.goto('/')]);
-    await Promise.all([expect(employee.locator('[data-realtime="current"]')).toBeVisible(), expect(staff.locator('[data-realtime="current"]')).toBeVisible()]);
-    return { employee, staff, name, contexts, addPerson, close: async () => { for (const context of contexts) await context.close(); } };
+    await Promise.all([
+      expect(employee.locator('[data-realtime="current"]')).toBeVisible(),
+      expect(staff.locator('[data-realtime="current"]')).toBeVisible(),
+    ]);
+    return {
+      employee,
+      staff,
+      name,
+      contexts,
+      addPerson,
+      close: async () => {
+        for (const context of contexts) await context.close();
+      },
+    };
   } catch (error) {
     for (const context of contexts) await context.close();
     throw error;
@@ -52,7 +107,10 @@ async function office(page: Page, browser: Browser) {
 }
 
 async function placeOrder({ employee, staff, name }: Awaited<ReturnType<typeof office>>) {
-  await employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name, exact: true }).click();
+  await employee
+    .getByRole('group', { name: 'Choose a refreshment' })
+    .getByRole('button', { name, exact: true })
+    .click();
   await employee.getByRole('button', { name: 'Send order (1)', exact: true }).click();
   const employeeCard = employee.getByRole('article').filter({ hasText: name });
   const staffCard = staff.getByRole('article').filter({ hasText: name });
@@ -64,7 +122,10 @@ async function placeOrder({ employee, staff, name }: Awaited<ReturnType<typeof o
   return { employeeCard, staffCard, accept, cancel };
 }
 
-test('employee cancels a pending order and the staff queue updates live', async ({ page, browser }) => {
+test('employee cancels a pending order and the staff queue updates live', async ({
+  page,
+  browser,
+}) => {
   const f = await office(page, browser);
   try {
     const { employeeCard, staffCard, cancel } = await placeOrder(f);
@@ -76,10 +137,15 @@ test('employee cancels a pending order and the staff queue updates live', async 
     await expect(employeeCard.getByText('Cancelled', { exact: true })).toBeVisible();
     await expect(cancel).toHaveCount(0);
     await expect(staffCard).toHaveCount(0);
-  } finally { await f.close(); }
+  } finally {
+    await f.close();
+  }
 });
 
-test('an order accepted before cancellation shows its real status and a conflict message', async ({ page, browser }) => {
+test('an order accepted before cancellation shows its real status and a conflict message', async ({
+  page,
+  browser,
+}) => {
   const f = await office(page, browser);
   try {
     const { employeeCard, staffCard, accept, cancel } = await placeOrder(f);
@@ -91,15 +157,24 @@ test('an order accepted before cancellation shows its real status and a conflict
     await cancel.click();
     await expect(employeeCard.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(cancel).toHaveCount(0);
-    await expect(f.employee.getByRole('alert')).toContainText('Only pending orders can be cancelled.');
-    await expect(staffCard.getByRole('button', { name: 'Reject order', exact: true })).toHaveCount(0);
-  } finally { await f.close(); }
+    await expect(f.employee.getByRole('alert')).toContainText(
+      'Only pending orders can be cancelled.',
+    );
+    await expect(staffCard.getByRole('button', { name: 'Reject order', exact: true })).toHaveCount(
+      0,
+    );
+  } finally {
+    await f.close();
+  }
 });
 
 test('a delivered order can be sent again in one tap', async ({ page, browser }) => {
   const f = await office(page, browser);
   try {
-    const reorder = f.employee.getByRole('button', { name: 'Same as last time: ' + f.name + ' ×1', exact: true });
+    const reorder = f.employee.getByRole('button', {
+      name: 'Same as last time: ' + f.name + ' ×1',
+      exact: true,
+    });
     await expect(reorder).toHaveCount(0);
     const { employeeCard, accept, staffCard } = await placeOrder(f);
     await accept.click();
@@ -109,25 +184,41 @@ test('a delivered order can be sent again in one tap', async ({ page, browser })
     await expect(employeeCard).toHaveCount(2);
     await expect(employeeCard.getByText('Pending', { exact: true })).toBeVisible();
     await expect(staffCard.getByText('Pending', { exact: true })).toBeVisible();
-  } finally { await f.close(); }
+  } finally {
+    await f.close();
+  }
 });
 
-test('a confirmed order action updates the card while list refresh is still pending', async ({ page, browser }) => {
+test('a confirmed order action updates the card while list refresh is still pending', async ({
+  page,
+  browser,
+}) => {
   const f = await office(page, browser);
   let release = () => {};
   try {
     const { accept, staffCard } = await placeOrder(f);
-    const held = new Promise<void>((resolve) => { release = resolve; });
-    await f.staff.route('**/api/work/orders', async (route) => { await held; await route.continue(); });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await f.staff.route('**/api/work/orders', async (route) => {
+      await held;
+      await route.continue();
+    });
     const refetch = f.staff.waitForRequest('**/api/work/orders');
     await accept.click();
     await refetch;
     await expect(staffCard.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(staffCard.getByRole('button', { name: 'Mark delivered' })).toBeEnabled();
-  } finally { release(); await f.close(); }
+  } finally {
+    release();
+    await f.close();
+  }
 });
 
-test('admin observes live while assigned staff returns an order for another staff member to deliver', async ({ page, browser }) => {
+test('admin observes live while assigned staff returns an order for another staff member to deliver', async ({
+  page,
+  browser,
+}) => {
   const f = await office(page, browser);
   const otherContext = await browser.newContext();
   try {
@@ -154,10 +245,16 @@ test('admin observes live while assigned staff returns an order for another staf
     await secondCard.getByRole('button', { name: 'Mark delivered' }).click();
     await expect(employeeCard.getByText('Delivered', { exact: true })).toBeVisible();
     await expect(adminCard).toHaveCount(0);
-  } finally { await otherContext.close(); await f.close(); }
+  } finally {
+    await otherContext.close();
+    await f.close();
+  }
 });
 
-test('staff rejects a pending order with a reason visible to the employee', async ({ page, browser }) => {
+test('staff rejects a pending order with a reason visible to the employee', async ({
+  page,
+  browser,
+}) => {
   const f = await office(page, browser);
   try {
     const { employeeCard, staffCard } = await placeOrder(f);
@@ -181,5 +278,7 @@ test('staff rejects a pending order with a reason visible to the employee', asyn
     await expect(staffCard).toHaveCount(0);
     await expect(employeeCard.getByText('Rejected', { exact: true })).toBeVisible();
     await expect(employeeCard).toContainText('The kitchen is closed.');
-  } finally { await f.close(); }
+  } finally {
+    await f.close();
+  }
 });

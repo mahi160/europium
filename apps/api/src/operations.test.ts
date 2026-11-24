@@ -1,6 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -8,7 +18,17 @@ import { afterEach, expect, test, vi } from 'vite-plus/test';
 import { menuItemResponseSchema, orderResponseSchema } from '@office-service/shared';
 import { createApp } from './app';
 import { openDatabase } from './database';
-import { copyCaddy, decryptArchive, encryptArchive, pack, protectedPassphrase, restoreVolumes, snapshot, unpack, verifyDatabase } from './operations';
+import {
+  copyCaddy,
+  decryptArchive,
+  encryptArchive,
+  pack,
+  protectedPassphrase,
+  restoreVolumes,
+  snapshot,
+  unpack,
+  verifyDatabase,
+} from './operations';
 
 const resources: Array<() => void> = [];
 afterEach(() => {
@@ -35,29 +55,108 @@ test('online backup during real order creation restores login, contents, status,
   const root = temporary();
   const origin = 'http://localhost:5173';
   const password = 'backup-account-password-123';
-  const config = { APP_ORIGIN: origin, AUTH_SECRET: 'backup-auth-secret-at-least-32-characters', SETUP_TOKEN: 'backup-setup-token-at-least-32-characters', DATABASE_PATH: join(root, 'live.sqlite') };
+  const config = {
+    APP_ORIGIN: origin,
+    AUTH_SECRET: 'backup-auth-secret-at-least-32-characters',
+    SETUP_TOKEN: 'backup-setup-token-at-least-32-characters',
+    DATABASE_PATH: join(root, 'live.sqlite'),
+  };
   const backend = createApp(config);
   resources.push(backend.close);
   function request(app: ReturnType<typeof createApp>, path: string, body?: unknown, cookie = '') {
-    return app.app.request('/api' + path, { method: body === undefined ? 'GET' : 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: cookie }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return app.app.request('/api' + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { Origin: origin, 'Content-Type': 'application/json', Cookie: cookie },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
   }
-  expect((await request(backend, '/setup', { username: 'admin', password, setupToken: config.SETUP_TOKEN, name: 'Admin', language: 'en', floor: '1', desk: 'A' })).status).toBe(201);
+  expect(
+    (
+      await request(backend, '/setup', {
+        username: 'admin',
+        password,
+        setupToken: config.SETUP_TOKEN,
+        name: 'Admin',
+        language: 'en',
+        floor: '1',
+        desk: 'A',
+      })
+    ).status,
+  ).toBe(201);
   const login = await request(backend, '/auth/login', { username: 'admin', password });
   expect(login.status).toBe(200);
-  const cookie = login.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
-  const menu = menuItemResponseSchema.parse(await (await request(backend, '/menu', { name: 'Tea', category: 'tea', unit: 'কাপ', available: true, archived: false }, cookie)).json()).item;
-  expect((await request(backend, '/users', { username: 'requester', password: '0007', name: 'Requester', role: 'employee', language: 'en', floor: '1', desk: 'A' }, cookie)).status).toBe(201);
-  const employeeLogin = await request(backend, '/auth/login', { username: 'requester', password: '0007' });
+  const cookie = login.headers
+    .getSetCookie()
+    .map((value) => value.split(';')[0])
+    .join('; ');
+  const menu = menuItemResponseSchema.parse(
+    await (
+      await request(
+        backend,
+        '/menu',
+        { name: 'Tea', category: 'tea', unit: 'কাপ', available: true, archived: false },
+        cookie,
+      )
+    ).json(),
+  ).item;
+  expect(
+    (
+      await request(
+        backend,
+        '/users',
+        {
+          username: 'requester',
+          password: '0007',
+          name: 'Requester',
+          role: 'employee',
+          language: 'en',
+          floor: '1',
+          desk: 'A',
+        },
+        cookie,
+      )
+    ).status,
+  ).toBe(201);
+  const employeeLogin = await request(backend, '/auth/login', {
+    username: 'requester',
+    password: '0007',
+  });
   expect(employeeLogin.status).toBe(200);
-  const employeeCookie = employeeLogin.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
-  expect((await request(backend, '/auth/change-password', { currentPassword: '0007', newPassword: '0042' }, employeeCookie)).status).toBe(200);
+  const employeeCookie = employeeLogin.headers
+    .getSetCookie()
+    .map((value) => value.split(';')[0])
+    .join('; ');
+  expect(
+    (
+      await request(
+        backend,
+        '/auth/change-password',
+        { currentPassword: '0007', newPassword: '0042' },
+        employeeCookie,
+      )
+    ).status,
+  ).toBe(200);
   const place = async (requester = cookie) => {
-    const response = await request(backend, '/orders', { idempotencyKey: randomUUID(), items: [{ itemId: menu.id, quantity: 2 }], note: 'Keep contents' }, requester);
+    const response = await request(
+      backend,
+      '/orders',
+      {
+        idempotencyKey: randomUUID(),
+        items: [{ itemId: menu.id, quantity: 2 }],
+        note: 'Keep contents',
+      },
+      requester,
+    );
     expect(response.status).toBe(201);
     return orderResponseSchema.parse(await response.json()).order;
   };
   const order = await place(employeeCookie);
-  const cancelled = await request(backend, `/orders/${order.id}/cancel`, { reason: 'Changed plans' }, employeeCookie);
+  const cancelled = await request(
+    backend,
+    `/orders/${order.id}/cancel`,
+    { reason: 'Changed plans' },
+    employeeCookie,
+  );
   expect(cancelled.status).toBe(200);
   const expected = orderResponseSchema.parse(await cancelled.json()).order;
   backend.sqlite.exec('CREATE TABLE backup_load (payload BLOB)');
@@ -84,16 +183,33 @@ test('online backup during real order creation restores login, contents, status,
   expect(concurrentWrites).toBeGreaterThan(0);
   verifyDatabase(join(bundle, 'office.sqlite'));
   const captured = new Database(join(bundle, 'office.sqlite'), { readonly: true });
-  expect(captured.prepare('SELECT COUNT(*) AS count FROM orders').get()).toEqual(expect.objectContaining({ count: expect.any(Number) }));
-  expect(captured.prepare('SELECT COUNT(*) AS count FROM orders o WHERE NOT EXISTS (SELECT 1 FROM order_item i WHERE i.order_id = o.id)').get()).toEqual({ count: 0 });
+  expect(captured.prepare('SELECT COUNT(*) AS count FROM orders').get()).toEqual(
+    expect.objectContaining({ count: expect.any(Number) }),
+  );
+  expect(
+    captured
+      .prepare(
+        'SELECT COUNT(*) AS count FROM orders o WHERE NOT EXISTS (SELECT 1 FROM order_item i WHERE i.order_id = o.id)',
+      )
+      .get(),
+  ).toEqual({ count: 0 });
   captured.close();
   backend.close();
   const restarted = createApp(config);
-  expect((await request(restarted, '/auth/login', { username: 'admin', password })).status).toBe(200);
+  expect((await request(restarted, '/auth/login', { username: 'admin', password })).status).toBe(
+    200,
+  );
   restarted.close();
-  writeFileSync(join(bundle, '.env'), Object.entries(config).map(([key, value]) => `${key}=${value}`).join('\n') + '\nVAPID_PRIVATE_KEY=preserve-vapid-private\n', { mode: 0o600 });
+  writeFileSync(
+    join(bundle, '.env'),
+    Object.entries(config)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n') + '\nVAPID_PRIVATE_KEY=preserve-vapid-private\n',
+    { mode: 0o600 },
+  );
   const ca = directory(bundle, 'caddy-data/caddy/pki/authorities/local');
-  for (const name of ['root.crt', 'root.key', 'intermediate.crt', 'intermediate.key']) writeFileSync(join(ca, name), `original-${name}`, { mode: 0o600 });
+  for (const name of ['root.crt', 'root.key', 'intermediate.crt', 'intermediate.key'])
+    writeFileSync(join(ca, name), `original-${name}`, { mode: 0o600 });
   writeFileSync(join(directory(bundle, 'caddy-config'), 'autosave.json'), '{}');
   const pass = passfile(root);
   const archive = join(root, 'archive.tar');
@@ -105,18 +221,27 @@ test('online backup during real order creation restores login, contents, status,
   await decryptArchive(encrypted, decrypted, pass);
   const restored = join(root, 'restored');
   unpack(decrypted, restored);
-  const volumes = ['app', 'caddy-data', 'caddy-config'].map((name) => directory(root, `replacement/${name}`));
+  const volumes = ['app', 'caddy-data', 'caddy-config'].map((name) =>
+    directory(root, `replacement/${name}`),
+  );
   restoreVolumes(restored, volumes);
   expect(readFileSync(join(restored, '.env'))).toEqual(readFileSync(join(bundle, '.env')));
   for (const name of ['root.crt', 'root.key', 'intermediate.crt', 'intermediate.key']) {
-    expect(readFileSync(join(volumes[1], 'caddy/pki/authorities/local', name))).toEqual(readFileSync(join(ca, name)));
+    expect(readFileSync(join(volumes[1], 'caddy/pki/authorities/local', name))).toEqual(
+      readFileSync(join(ca, name)),
+    );
   }
   const replacement = createApp({ ...config, DATABASE_PATH: join(volumes[0], 'office.sqlite') });
   resources.push(replacement.close);
   const restoredLogin = await request(replacement, '/auth/login', { username: 'admin', password });
   expect(restoredLogin.status).toBe(200);
-  const restoredCookie = restoredLogin.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
-  const detail = orderResponseSchema.parse(await (await request(replacement, `/orders/${order.id}`, undefined, restoredCookie)).json()).order;
+  const restoredCookie = restoredLogin.headers
+    .getSetCookie()
+    .map((value) => value.split(';')[0])
+    .join('; ');
+  const detail = orderResponseSchema.parse(
+    await (await request(replacement, `/orders/${order.id}`, undefined, restoredCookie)).json(),
+  ).order;
   expect(detail).toEqual(expected);
   const beforeRefusal = readFileSync(join(volumes[0], 'office.sqlite'));
   expect(() => restoreVolumes(restored, volumes)).toThrow('empty volumes');
@@ -132,7 +257,9 @@ test('authenticated bundles reject wrong keys and altered headers, ciphertext an
   const encrypted = join(root, 'encrypted');
   writeFileSync(input, 'private configuration and CA keys');
   await encryptArchive(input, encrypted, pass);
-  await expect(decryptArchive(encrypted, join(root, 'wrong-output'), wrong)).rejects.toThrow('authentication failed');
+  await expect(decryptArchive(encrypted, join(root, 'wrong-output'), wrong)).rejects.toThrow(
+    'authentication failed',
+  );
   expect(existsSync(join(root, 'wrong-output'))).toBe(false);
   for (const position of [10, 40, readFileSync(encrypted).length - 1]) {
     const modified = readFileSync(encrypted);
@@ -188,7 +315,7 @@ test('production startup blocks existing pending schemas without modifying data;
   fresh.sqlite.close();
   const path = join(root, 'pending.sqlite');
   const old = new Database(path);
-  old.exec('CREATE TABLE original (value TEXT); INSERT INTO original VALUES (\'keep\')');
+  old.exec("CREATE TABLE original (value TEXT); INSERT INTO original VALUES ('keep')");
   old.close();
   const original = readFileSync(path);
   expect(() => openDatabase(path)).toThrow('Production migrations blocked');

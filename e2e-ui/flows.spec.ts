@@ -20,24 +20,32 @@ for (const width of [1440, 768, 390]) {
     await page.goto('/');
     await page.getByLabel('ভাষা', { exact: true }).selectOption('en');
     if ((await setup.json()).setupRequired) {
-      await page.getByLabel('Setup token', { exact: false }).fill('ui-browser-setup-token-32-characters');
+      await page
+        .getByLabel('Setup token', { exact: false })
+        .fill('ui-browser-setup-token-32-characters');
       await page.getByLabel('Full name', { exact: false }).fill('Office administrator');
       await page.getByLabel('Username', { exact: false }).fill('simple_admin');
       await page.getByLabel(/^Password \*$/).fill(adminPassword);
       await page.getByRole('button', { name: 'Set up Office Service', exact: true }).click();
-      await expect(page.getByRole('heading', { name: 'Sign in', exact: true, level: 1 })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: 'Sign in', exact: true, level: 1 }),
+      ).toBeVisible();
       await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toHaveCount(0);
     }
     await page.getByLabel('Username', { exact: false }).fill('simple_admin');
     await page.getByLabel(/^PIN or password \*$/).fill(adminPassword);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await page.getByRole('link', { name: 'Administrator', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1, name: 'Administrator', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'Administrator', exact: true }),
+    ).toBeVisible();
     for (const role of ['employee', 'staff']) {
       await page.getByRole('button', { name: 'Add person', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Add person', exact: true });
       await expect(dialog).toBeVisible();
-      await dialog.getByLabel('Full name', { exact: false }).fill(`${role === 'employee' ? 'Rahim' : 'Karim'} ${width}`);
+      await dialog
+        .getByLabel('Full name', { exact: false })
+        .fill(`${role === 'employee' ? 'Rahim' : 'Karim'} ${width}`);
       await dialog.getByLabel('Username', { exact: false }).fill(`ui_${role}_${width}`);
       await dialog.getByLabel('Role', { exact: true }).selectOption(role);
       await dialog.getByRole('textbox', { name: /^PIN/ }).fill('0017');
@@ -57,7 +65,9 @@ for (const width of [1440, 768, 390]) {
     await page.keyboard.press('Shift+Tab');
     await expect(edit.getByRole('button', { name: 'Close', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect.poll(() => edit.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+    await expect
+      .poll(() => edit.evaluate((element) => element.contains(document.activeElement)))
+      .toBe(true);
     await shot(page, `people-dialog-${width}`);
     await page.keyboard.press('Escape');
     await expect(edit).toHaveCount(0);
@@ -68,7 +78,10 @@ for (const width of [1440, 768, 390]) {
     await edit.getByLabel('Role', { exact: true }).selectOption('employee');
     await edit.getByRole('button', { name: 'Reset PIN', exact: true }).click();
     await edit.getByLabel('New PIN', { exact: false }).fill('0027');
-    await edit.getByRole('form', { name: 'Reset PIN', exact: true }).getByRole('button', { name: 'Reset PIN', exact: true }).click();
+    await edit
+      .getByRole('form', { name: 'Reset PIN', exact: true })
+      .getByRole('button', { name: 'Reset PIN', exact: true })
+      .click();
     await expect(edit.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
     await page.keyboard.press('Escape');
     await page.getByLabel('Search people').fill('');
@@ -90,7 +103,9 @@ for (const width of [1440, 768, 390]) {
     await shot(page, `menu-${width}`);
 
     async function signIn(role: string, pin: string) {
-      const context = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 1000 } });
+      const context = await browser.newContext({
+        viewport: { width, height: width === 390 ? 844 : 1000 },
+      });
       const p = await context.newPage();
       p.on('pageerror', (error) => errors.push(error.message));
       await p.goto('/');
@@ -98,7 +113,9 @@ for (const width of [1440, 768, 390]) {
       await p.getByLabel('Username', { exact: false }).fill(`ui_${role}_${width}`);
       await p.getByLabel(/^PIN or password \*$/).fill(pin);
       await p.getByRole('button', { name: 'Sign in', exact: true }).click();
-      await expect(p.getByRole('heading', { name: 'Choose your own PIN', exact: true, level: 1 })).toBeVisible();
+      await expect(
+        p.getByRole('heading', { name: 'Choose your own PIN', exact: true, level: 1 }),
+      ).toBeVisible();
       await p.getByLabel('Current PIN', { exact: false }).fill(pin);
       await p.getByLabel('New PIN', { exact: false }).fill('0042');
       await p.getByRole('button', { name: 'Change PIN', exact: true }).click();
@@ -106,14 +123,19 @@ for (const width of [1440, 768, 390]) {
     }
     const employee = await signIn('employee', '0027');
     const p = employee.p;
-    await expect(p.getByRole('heading', { name: "Today's refreshments", exact: true, level: 1 })).toBeVisible();
+    await expect(
+      p.getByRole('heading', { name: "Today's refreshments", exact: true, level: 1 }),
+    ).toBeVisible();
     await expect(p.getByRole('button', { name: 'Send order (0)', exact: true })).toBeDisabled();
     await p.getByRole('button', { name: 'পানি', exact: true }).click();
     const submit = p.getByRole('button', { name: 'Send order (1)', exact: true });
     await submit.scrollIntoViewIfNeeded();
     const bounds = await submit.boundingBox();
     expect(bounds).not.toBeNull();
-    if (bounds) { expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(width === 390 ? 844 : 1000); }
+    if (bounds) {
+      expect(bounds.y).toBeGreaterThanOrEqual(0);
+      expect(bounds.y + bounds.height).toBeLessThanOrEqual(width === 390 ? 844 : 1000);
+    }
     await expect(p.getByLabel('Note (optional)', { exact: false })).toBeHidden();
     await p.getByRole('button', { name: 'Note (optional)', exact: true }).click();
     await p.getByLabel('Note (optional)', { exact: false }).fill('চিনি ছাড়া');
@@ -131,7 +153,9 @@ for (const width of [1440, 768, 390]) {
     await shot(p, `placed-${width}`);
 
     const staff = await signIn('staff', '0017');
-    await expect(staff.p.getByRole('heading', { name: 'Staff queue', level: 1, exact: true })).toBeVisible();
+    await expect(
+      staff.p.getByRole('heading', { name: 'Staff queue', level: 1, exact: true }),
+    ).toBeVisible();
     await expect(staff.p.getByRole('article')).toContainText(`Rahim ${width}`);
     await expect(staff.p.getByRole('tab')).toHaveCount(0);
     const queued = staff.p.getByRole('article').filter({ hasText: `Rahim ${width}` });
@@ -158,7 +182,9 @@ for (const width of [1440, 768, 390]) {
     await expect(p.getByRole('article').filter({ hasText: 'Cancelled' })).toBeVisible();
     await p.getByLabel('Language', { exact: true }).selectOption('bn');
     await expect(p.locator('html')).toHaveAttribute('lang', 'bn-BD');
-    await expect(p.getByRole('heading', { name: 'আজকের চা-নাস্তা', exact: true, level: 1 })).toBeVisible();
+    await expect(
+      p.getByRole('heading', { name: 'আজকের চা-নাস্তা', exact: true, level: 1 }),
+    ).toBeVisible();
     await shot(p, `ordering-bn-${width}`);
     expect(errors).toEqual([]);
     await employee.context.close();
@@ -166,16 +192,26 @@ for (const width of [1440, 768, 390]) {
   });
 }
 
-test('lost order responses retain a locked draft and retry without duplicates', async ({ page }) => {
-  const login = await page.request.post('/api/auth/login', { headers, data: { username: 'simple_admin', password: adminPassword } });
+test('lost order responses retain a locked draft and retry without duplicates', async ({
+  page,
+}) => {
+  const login = await page.request.post('/api/auth/login', {
+    headers,
+    data: { username: 'simple_admin', password: adminPassword },
+  });
   expect(login.ok()).toBe(true);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: "Today's refreshments", level: 1, exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: "Today's refreshments", level: 1, exact: true }),
+  ).toBeVisible();
   const before = ordersResponseSchema.parse(await (await page.request.get('/api/orders')).json());
   const known = new Set(before.orders.map((order) => order.id));
   let id = '';
   await page.route('**/api/orders', async (route) => {
-    if (route.request().method() !== 'POST') { await route.continue(); return; }
+    if (route.request().method() !== 'POST') {
+      await route.continue();
+      return;
+    }
     const response = await route.fetch();
     expect(response.status()).toBe(201);
     id = (await response.json()).order.id;
@@ -190,28 +226,47 @@ test('lost order responses retain a locked draft and retry without duplicates', 
   await page.getByRole('button', { name: 'Retry same order', exact: true }).click();
   await expect(page.getByRole('status').filter({ hasText: 'Order placed.' })).toBeVisible();
   const result = ordersResponseSchema.parse(await (await page.request.get('/api/orders')).json());
-  expect(result.orders.filter((order) => !known.has(order.id)).map((order) => order.id)).toEqual([id]);
+  expect(result.orders.filter((order) => !known.has(order.id)).map((order) => order.id)).toEqual([
+    id,
+  ]);
 });
 
 for (const width of [1440, 390]) {
   test(`remove a person requires confirmation and persists at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 844 });
-    const login = await page.request.post('/api/auth/login', { headers, data: { username: 'simple_admin', password: adminPassword } });
+    const login = await page.request.post('/api/auth/login', {
+      headers,
+      data: { username: 'simple_admin', password: adminPassword },
+    });
     expect(login.ok()).toBe(true);
     const name = `Remove person ${width}`;
-    const created = await page.request.post('/api/users', { headers, data: {
-      username: `remove_person_${width}`, name, password: '0017', role: 'employee', language: 'en', floor: '', desk: '',
-    } });
+    const created = await page.request.post('/api/users', {
+      headers,
+      data: {
+        username: `remove_person_${width}`,
+        name,
+        password: '0017',
+        role: 'employee',
+        language: 'en',
+        floor: '',
+        desk: '',
+      },
+    });
     expect(created.status()).toBe(201);
     const { user } = await created.json();
     await page.goto('/admin');
     const row = page.getByRole('button', { name: new RegExp(name) });
     await row.click();
-    await page.getByRole('dialog', { name: 'Edit person', exact: true }).getByRole('button', { name: 'Remove person', exact: true }).click();
+    await page
+      .getByRole('dialog', { name: 'Edit person', exact: true })
+      .getByRole('button', { name: 'Remove person', exact: true })
+      .click();
     const confirmation = page.getByRole('dialog', { name: 'Remove person', exact: true });
     await expect(confirmation).toContainText(name);
     await expect(confirmation).toContainText('Their orders and history will be kept.');
-    await expect(confirmation.getByRole('button', { name: 'Confirm removal', exact: true })).not.toBeFocused();
+    await expect(
+      confirmation.getByRole('button', { name: 'Confirm removal', exact: true }),
+    ).not.toBeFocused();
     await confirmation.getByRole('button', { name: 'Keep person', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Edit person', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Close', exact: true }).click();
@@ -220,11 +275,16 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Remove person', exact: true }).click();
     await confirmation.getByRole('button', { name: 'Confirm removal', exact: true }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await expect(page.getByRole('status').filter({ hasText: `${name} removed. Order history kept.` })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: `${name} removed. Order history kept.` }),
+    ).toBeVisible();
     await expect(row).toHaveCount(0);
     await page.reload();
     await expect(row).toHaveCount(0);
-    const reactivate = await page.request.patch(`/api/users/${user.id}`, { headers, data: { isActive: true } });
+    const reactivate = await page.request.patch(`/api/users/${user.id}`, {
+      headers,
+      data: { isActive: true },
+    });
     expect(reactivate.status()).toBe(404);
   });
 }

@@ -33,8 +33,15 @@ export function createAuth(db: ReturnType<typeof openDatabase>['db'], config: Ap
       },
     },
     plugins: [
-      username({ minUsernameLength: 3, maxUsernameLength: 32, usernameValidator: (value) => /^[a-z0-9_]+$/.test(value) }),
-      admin({ defaultRole: 'employee', roles: { admin: adminAc, employee: userAc, staff: userAc } }),
+      username({
+        minUsernameLength: 3,
+        maxUsernameLength: 32,
+        usernameValidator: (value) => /^[a-z0-9_]+$/.test(value),
+      }),
+      admin({
+        defaultRole: 'employee',
+        roles: { admin: adminAc, employee: userAc, staff: userAc },
+      }),
     ],
     logger: { disabled: true },
   });

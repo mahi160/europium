@@ -7,20 +7,40 @@ import type { openDatabase } from './database';
 const dayMs = 86400000;
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
-export function registerStats(app: Hono<AppEnv>, sqlite: ReturnType<typeof openDatabase>['sqlite'], config: AppConfig) {
+export function registerStats(
+  app: Hono<AppEnv>,
+  sqlite: ReturnType<typeof openDatabase>['sqlite'],
+  config: AppConfig,
+) {
   if (!config.STATS_TOKEN) return;
   const expected = digest(config.STATS_TOKEN);
   const localTime = new Intl.DateTimeFormat('en', {
-    timeZone: config.OFFICE_TIMEZONE ?? 'Asia/Dhaka', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', hourCycle: 'h23',
+    timeZone: config.OFFICE_TIMEZONE ?? 'Asia/Dhaka',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    hourCycle: 'h23',
   });
   function officeTime(timestamp: number) {
-    const parts = new Map(localTime.formatToParts(timestamp).map(({ type, value }) => [type, value]));
+    const parts = new Map(
+      localTime.formatToParts(timestamp).map(({ type, value }) => [type, value]),
+    );
     return {
-      day: new Date(Date.UTC(Number(parts.get('year')), Number(parts.get('month')) - 1, Number(parts.get('day')))),
+      day: new Date(
+        Date.UTC(
+          Number(parts.get('year')),
+          Number(parts.get('month')) - 1,
+          Number(parts.get('day')),
+        ),
+      ),
       hour: Number(parts.get('hour')),
     };
   }
-  const deliveries = sqlite.prepare<[number, number], { id: string; completedAt: number; name: string; quantity: number }>(`
+  const deliveries = sqlite.prepare<
+    [number, number],
+    { id: string; completedAt: number; name: string; quantity: number }
+  >(`
     SELECT orders.id, completed_at AS completedAt, order_item.name, order_item.quantity
     FROM orders JOIN order_item ON order_item.order_id = orders.id
     WHERE orders.status = 'DELIVERED' AND completed_at >= ? AND completed_at <= ?
@@ -55,9 +75,16 @@ export function registerStats(app: Hono<AppEnv>, sqlite: ReturnType<typeof openD
       weekItems += row.quantity;
       items.set(row.name, (items.get(row.name) ?? 0) + row.quantity);
     }
-    const topItems = [...items].sort(([a, countA], [b, countB]) => countB - countA || (a < b ? -1 : a === b ? 0 : 1))
-      .slice(0, 5).map(([name, quantity]) => ({ name, quantity }));
-    const busiestHour = [...hours].sort(([a, countA], [b, countB]) => countB - countA || a - b)[0]?.[0] ?? null;
-    return c.json({ generatedAt, today: { orders: todayOrders, items: todayItems }, week: { items: weekItems, topItems, busiestHour } });
+    const topItems = [...items]
+      .sort(([a, countA], [b, countB]) => countB - countA || (a < b ? -1 : a === b ? 0 : 1))
+      .slice(0, 5)
+      .map(([name, quantity]) => ({ name, quantity }));
+    const busiestHour =
+      [...hours].sort(([a, countA], [b, countB]) => countB - countA || a - b)[0]?.[0] ?? null;
+    return c.json({
+      generatedAt,
+      today: { orders: todayOrders, items: todayItems },
+      week: { items: weekItems, topItems, busiestHour },
+    });
   });
 }

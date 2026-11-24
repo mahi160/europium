@@ -7,20 +7,38 @@ import { afterEach, expect, test } from 'vite-plus/test';
 
 const directories: string[] = [];
 afterEach(() => {
-  for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
 });
 function fixture(scenario = 'success') {
   const root = mkdtempSync(join(tmpdir(), 'office-script-'));
   directories.push(root);
-  for (const path of ['scripts', 'bin', 'apps/api/src', 'apps/api/migrations']) mkdirSync(join(root, path), { recursive: true });
-  for (const name of ['operations.sh', 'backup.sh', 'upgrade.sh', 'restore.sh', 'sqlite-backup.mjs']) copyFileSync(resolve('scripts', name), join(root, 'scripts', name));
+  for (const path of ['scripts', 'bin', 'apps/api/src', 'apps/api/migrations'])
+    mkdirSync(join(root, path), { recursive: true });
+  for (const name of [
+    'operations.sh',
+    'backup.sh',
+    'upgrade.sh',
+    'restore.sh',
+    'sqlite-backup.mjs',
+  ])
+    copyFileSync(resolve('scripts', name), join(root, 'scripts', name));
   writeFileSync(join(root, 'compose.yaml'), 'name: office-service\n');
   writeFileSync(join(root, 'apps/api/src/operations-cli.ts'), '');
-  const env = 'APP_IMAGE=old-api\nWEB_IMAGE=old-web\nIMAGE_SOURCE=local\nAUTH_SECRET=never-log-this-auth-secret\nSETUP_TOKEN=never-log-this-setup-token\nVAPID_PRIVATE_KEY=never-log-this-vapid-key\n';
+  const env =
+    'APP_IMAGE=old-api\nWEB_IMAGE=old-web\nIMAGE_SOURCE=local\nAUTH_SECRET=never-log-this-auth-secret\nSETUP_TOKEN=never-log-this-setup-token\nVAPID_PRIVATE_KEY=never-log-this-vapid-key\n';
   writeFileSync(join(root, '.env'), env, { mode: 0o600 });
-  writeFileSync(join(root, 'pass'), 'never-log-this-encryption-key-at-least-32-bytes', { mode: 0o600 });
-  writeFileSync(join(root, '.backup.conf'), `BACKUP_HOST=operator@backup.example\nBACKUP_DIRECTORY=/protected/office\nBACKUP_PASSFILE=${root}/pass\n`, { mode: 0o600 });
-  writeFileSync(join(root, 'bin/docker'), `#!/bin/sh
+  writeFileSync(join(root, 'pass'), 'never-log-this-encryption-key-at-least-32-bytes', {
+    mode: 0o600,
+  });
+  writeFileSync(
+    join(root, '.backup.conf'),
+    `BACKUP_HOST=operator@backup.example\nBACKUP_DIRECTORY=/protected/office\nBACKUP_PASSFILE=${root}/pass\n`,
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    join(root, 'bin/docker'),
+    `#!/bin/sh
 set -eu
 printf 'docker %s\n' "$*" >> "$BOUNDARY_LOG"
 case "$1" in
@@ -45,8 +63,12 @@ case "$1" in
     ;;
 esac
 exit 0
-`, { mode: 0o700 });
-  writeFileSync(join(root, 'bin/ssh'), `#!/bin/sh
+`,
+    { mode: 0o700 },
+  );
+  writeFileSync(
+    join(root, 'bin/ssh'),
+    `#!/bin/sh
 printf 'ssh %s\n' "$*" >> "$BOUNDARY_LOG"
 case "$*" in
   *sha256sum*)
@@ -55,19 +77,32 @@ case "$*" in
     printf '%s artifact\n' "$BACKUP_HASH"
     ;;
 esac
-`, { mode: 0o700 });
-  writeFileSync(join(root, 'bin/scp'), `#!/bin/sh
+`,
+    { mode: 0o700 },
+  );
+  writeFileSync(
+    join(root, 'bin/scp'),
+    `#!/bin/sh
 printf 'scp %s\n' "$*" >> "$BOUNDARY_LOG"
 [ "$SCENARIO" != transfer ]
-`, { mode: 0o700 });
+`,
+    { mode: 0o700 },
+  );
   const api = `ghcr.io/example/api@sha256:${'a'.repeat(64)}`;
   const web = `ghcr.io/example/web@sha256:${'b'.repeat(64)}`;
-  const run = (script = 'upgrade.sh', args = [api, web]) => spawnSync('sh', [join('scripts', script), ...args], {
-    cwd: root, encoding: 'utf8', input: 'yes\n', env: {
-      ...process.env, PATH: `${root}/bin:${process.env.PATH}`, SCENARIO: scenario,
-      BOUNDARY_LOG: join(root, 'boundary.log'), BACKUP_HASH: createHash('sha256').update('encrypted-fixture').digest('hex'),
-    },
-  });
+  const run = (script = 'upgrade.sh', args = [api, web]) =>
+    spawnSync('sh', [join('scripts', script), ...args], {
+      cwd: root,
+      encoding: 'utf8',
+      input: 'yes\n',
+      env: {
+        ...process.env,
+        PATH: `${root}/bin:${process.env.PATH}`,
+        SCENARIO: scenario,
+        BOUNDARY_LOG: join(root, 'boundary.log'),
+        BACKUP_HASH: createHash('sha256').update('encrypted-fixture').digest('hex'),
+      },
+    });
   return { root, env, run, log: () => readFileSync(join(root, 'boundary.log'), 'utf8') };
 }
 
@@ -88,7 +123,13 @@ test('upgrade requires remote checksum success before pull, migration and startu
   expect(startup).toBeGreaterThan(migration);
   expect(readFileSync(join(f.root, '.env'), 'utf8')).toBe(f.env);
   expect(result.stdout).toContain('Off-server backup verified');
-  for (const secret of ['never-log-this-auth-secret', 'never-log-this-setup-token', 'never-log-this-vapid-key', 'never-log-this-encryption-key']) expect(log + result.stdout + result.stderr).not.toContain(secret);
+  for (const secret of [
+    'never-log-this-auth-secret',
+    'never-log-this-setup-token',
+    'never-log-this-vapid-key',
+    'never-log-this-encryption-key',
+  ])
+    expect(log + result.stdout + result.stderr).not.toContain(secret);
 });
 
 for (const scenario of ['transfer', 'mismatch', 'checksum-failure']) {
