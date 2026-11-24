@@ -17,7 +17,14 @@ export function number(value: number) {
   const english = i18n.language === 'en';
   return new Intl.NumberFormat(english ? 'en-BD' : 'bn-BD', { numberingSystem: english ? 'latn' : 'beng' }).format(value);
 }
+export function localDigits(value: string) {
+  return i18n.language === 'en' ? value : value.replace(/[0-9]/g, (digit) => number(Number(digit)));
+}
 export function date(value: number | string) {
-  return new Intl.DateTimeFormat(i18n.language === 'en' ? 'en-BD' : 'bn-BD', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  const english = i18n.language === 'en';
+  return new Intl.DateTimeFormat(english ? 'en-BD' : 'bn-BD', {
+    timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short',
+    numberingSystem: english ? 'latn' : 'beng', ...(english ? {} : { hourCycle: 'h23' }),
+  }).format(new Date(value));
 }
 export default i18n;

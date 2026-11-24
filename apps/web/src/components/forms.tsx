@@ -35,7 +35,7 @@ export function Form({ title, children, submit, onSubmit, description, disabled 
   useEffect(() => { if (error) errorSummary.current?.focus(); }, [error]);
   const offline = useOffline();
   const { t } = useTranslation();
-  return <form method="post" action="#" aria-labelledby={id} className="grid gap-4" onInput={() => { setError(null); setSaved(false); }} onSubmit={async (e) => {
+  return <form method="post" action="#" aria-label={compact || hideTitle ? title : undefined} aria-labelledby={compact || hideTitle ? undefined : id} className="grid gap-4" onInput={() => { setError(null); setSaved(false); }} onSubmit={async (e) => {
     e.preventDefault(); if (busy || disabled || offline || !navigator.onLine) return;
     const data = new FormData(e.currentTarget);
     setBusy(true); setError(null); setSaved(false);
@@ -43,7 +43,7 @@ export function Form({ title, children, submit, onSubmit, description, disabled 
     catch (cause) { setError(cause instanceof Error ? cause : new Error()); }
     finally { setBusy(false); }
   }}>
-    <h2 id={id} className={compact || hideTitle ? 'sr-only' : undefined}>{title}</h2>{description && <FieldDescription>{description}</FieldDescription>}
+    {!compact && !hideTitle && <h2 id={id}>{title}</h2>}{description && <FieldDescription>{description}</FieldDescription>}
     {children}{error && <div ref={errorSummary} tabIndex={-1}><ErrorNotice error={error}/></div>}
     <div className={'flex flex-wrap items-center gap-3 ' + (submitClassName ?? '')}><Button type="submit" variant={variant} disabled={busy || disabled || offline}>{busy ? t('saving') : submit}</Button>
     {saved && showSaved && <span role="status">{t('saved')}</span>}</div>

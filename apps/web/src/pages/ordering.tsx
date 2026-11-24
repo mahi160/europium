@@ -9,7 +9,7 @@ import {
 } from '@office-service/shared';
 import { api, ApiError } from '../api';
 import { draftFor } from '../draft';
-import { number } from '../i18n';
+import { localDigits, number } from '../i18n';
 import { cacheOrder, refreshOrders } from '../order-cache';
 import { OrderCard } from '../components/order-card';
 import { ErrorNotice, Field, Form, text } from '../components/forms';
@@ -36,18 +36,27 @@ export function Ordering({ user }: { user: PublicUser }) {
   const [busy, setBusy] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<Error | null>(null);
-  const confirmation = useRef<HTMLElement>(null);
-
-  const [added, setAdded] = useState('');
+  const confirmation = useRef<HTMLParagraphElement>(null);
+  const [added, setAdded] = useState<{ name: string } | null>(null);
   const [noteOpen, setNoteOpen] = useState(draft.note !== '');
   const items = (menu.data?.items ?? []).filter((item) => !item.archived);
+  const submitted = orders.data?.orders.find((order) => order.id === submittedId);
+  const showConfirmation = submitted?.status === 'PENDING' && submitted.audit.length === 1;
+  useEffect(() => { if (showConfirmation) confirmation.current?.focus(); }, [submittedId, showConfirmation]);
   useEffect(() => {
-    if (submittedId) { confirmation.current?.focus(); confirmation.current?.scrollIntoView({ block: 'start' }); }
+    if (!submittedId) return;
+    const timer = setTimeout(() => setSubmittedId(null), 4000);
+    return () => clearTimeout(timer);
   }, [submittedId]);
+  useEffect(() => {
+    if (!added) return;
+    const timer = setTimeout(() => setAdded(null), 2500);
+    return () => clearTimeout(timer);
+  }, [added]);
   const frozen = draft.attempted !== null;
   const selected = Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0);
   const total = selected.reduce((sum, [, quantity]) => sum + quantity, 0);
-  const location = [user.floor && t('floor') + ' ' + user.floor, user.desk && t('desk') + ' ' + user.desk].filter(Boolean).join(' · ');
+  const location = [user.floor && t('floor') + ' ' + localDigits(user.floor), user.desk && t('desk') + ' ' + localDigits(user.desk)].filter(Boolean).join(' · ');
   const lastItems = user.role === 'employee' ? orders.data?.lastOrder?.items : undefined;
   const repeatable = lastItems?.filter(({ itemId }) => items.some((item) => item.id === itemId && item.available)) ?? [];
   const repeatLabel = lastItems && t('reorderLast', { items: (repeatable.length ? repeatable : lastItems)
@@ -62,6 +71,7 @@ export function Ordering({ user }: { user: PublicUser }) {
       const result = await api('/orders', orderResponseSchema, 'POST', payload);
       store.getState().clear();
       await cacheOrder(client, user, result.order);
+      setAdded(null);
       setSubmittedId(result.order.id);
       void refreshOrders(client, user.id);
     } catch (cause) {
@@ -78,8 +88,8 @@ export function Ordering({ user }: { user: PublicUser }) {
     if (busy || state.attempted || quantity < 0 || !Number.isSafeInteger(quantity)) return;
     state.edit({ quantities: { ...state.quantities, [id]: quantity } });
     setSubmittedId(null);
-    if (delta > 0) setAdded(t('kiosk.added', { name: items.find((item) => item.id === id)?.name }));
-    else setAdded('');
+    const item = items.find((item) => item.id === id);
+    setAdded(delta > 0 && item ? { name: item.name } : null);
   }
   return <div className="kiosk-ordering">
     <div className="flex flex-wrap items-baseline justify-between gap-3"><h1>{t('refreshments')}</h1><RealtimeStatus/></div>
@@ -98,7 +108,7 @@ export function Ordering({ user }: { user: PublicUser }) {
       </Button>)}
     </div>
     {menu.data && items.length === 0 && <FieldDescription>{t('emptyMenu')}</FieldDescription>}
-    <p className="sr-only" role="status">{added}</p>
+    <p className="sr-only" role="status">{added ? t('kiosk.added', added) : ''}</p>
     <section className="kiosk-review" aria-label={t('kiosk.review')}>
       <h2>{t('yourOrder')}</h2>
       <Form title={t('yourOrder')} hideTitle submit={frozen ? t('retryOrder') : t('sendOrder', { countText: number(total) })} submitClassName="order-send-bar" disabled={offline || (!selected.length && !frozen)} showSaved={false} onSubmit={() => submit()}>
@@ -117,7 +127,7 @@ export function Ordering({ user }: { user: PublicUser }) {
         </Collapsible>
         {frozen && <Alert role="status"><AlertDescription>{t('retryHelp')}</AlertDescription></Alert>}
       </Form>
-      {submittedId && <section className="kiosk-confirmation" ref={confirmation} tabIndex={-1} aria-label={t('orderPlaced')}><p role="status">{t('orderPlaced')}</p></section>}
+      <p className={showConfirmation ? 'kiosk-confirmation' : 'sr-only'} role="status" ref={confirmation} tabIndex={-1}>{showConfirmation ? t('orderPlaced') : ''}</p>
     </section>
     <section className="kiosk-history" aria-labelledby="orders-heading">
       <h2 id="orders-heading">{t('orders')}</h2>

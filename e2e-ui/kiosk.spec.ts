@@ -90,6 +90,8 @@ for (const width of [1440, 768, 390, 320]) {
     await p.getByLabel('Language', { exact: true }).selectOption('bn');
     await expect(p.getByRole('heading', { level: 1, name: 'আজকের চা-নাস্তা' })).toBeVisible();
     await expect(p.getByRole('button', { name: 'অর্ডার পাঠান (২)', exact: true })).toBeEnabled();
+    await expect(p.locator('.kiosk-delivery')).toContainText('D১২');
+    await expect(p.locator('.kiosk-delivery')).not.toContainText(/[0-9]/);
     await fits(p);
     await p.screenshot({ path: `test-results/kiosk/bangla-${width}.png`, fullPage: true, animations: 'disabled' });
     await p.getByLabel('ভাষা', { exact: true }).selectOption('en');
@@ -114,6 +116,11 @@ for (const width of [1440, 768, 390, 320]) {
     await order.getByRole('button', { name: 'Mark delivered', exact: true }).click();
     await expect(order).toHaveCount(0);
     await expect(placed).toContainText('Delivered');
+    await expect(p.getByRole('status').filter({ hasText: 'Order placed.' })).toHaveCount(0);
+    await p.getByLabel('Language', { exact: true }).selectOption('bn');
+    await expect(placed.locator('time')).toContainText(/[০-৯]/);
+    await expect(placed.locator('time')).not.toContainText(/[0-9]|AM|PM/);
+    await p.getByLabel('ভাষা', { exact: true }).selectOption('en');
     await p.goto('/admin');
     await expect(p.getByText('This section is for authorized staff only.', { exact: true })).toBeVisible();
     await expect(p.getByRole('button', { name: 'Add person', exact: true })).toHaveCount(0);

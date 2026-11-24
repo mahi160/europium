@@ -3,7 +3,7 @@ import { orderResponseSchema } from '@office-service/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
-import { date, number } from '../i18n';
+import { date, localDigits, number } from '../i18n';
 import { cacheOrder, refreshOrders } from '../order-cache';
 import { Form } from './forms';
 import { OrderReasonDialog } from './order-reason-dialog';
@@ -40,7 +40,7 @@ export function OrderCard({ order, user, work = false, onError, onTransition }: 
       <FieldDescription><time dateTime={new Date(order.createdAt).toISOString()}>{date(order.createdAt)}</time></FieldDescription>
     </div>
     {work && requester && <h3>{requester}</h3>}
-    {work && (order.floor || order.desk) && <FieldDescription>{[order.floor && t('floor') + ' ' + order.floor, order.desk && t('desk') + ' ' + order.desk].filter(Boolean).join(', ')}</FieldDescription>}
+    {work && (order.floor || order.desk) && <FieldDescription>{[order.floor && t('floor') + ' ' + localDigits(order.floor), order.desk && t('desk') + ' ' + localDigits(order.desk)].filter(Boolean).join(', ')}</FieldDescription>}
     <ul className="grid gap-1">{order.items.map((item) => <li className="flex justify-between gap-3" key={item.itemId}><span>{item.name}</span><span className="shrink-0">{number(item.quantity)} {item.unit}</span></li>)}</ul>
     {order.note && <p>{order.note}</p>}
     {order.reason && <p>{t('reason')}: {order.reason}</p>}
