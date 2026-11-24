@@ -59,8 +59,7 @@ test('two contexts update automatically, reconcile missed events offline and on 
   const f = await office(page, browser);
   try {
     await f.employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.name, exact: true }).click();
-    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
-    await f.employee.getByRole('button', { name: 'Place order', exact: true }).click();
+    await f.employee.getByRole('button', { name: 'Send order (1)', exact: true }).click();
     const employeeCard = f.employee.getByRole('article').filter({ hasText: f.name });
     const staffCard = f.staff.getByRole('article').filter({ hasText: f.name });
     await expect(staffCard).toBeVisible({ timeout: 5000 });
@@ -69,8 +68,8 @@ test('two contexts update automatically, reconcile missed events offline and on 
     await f.contexts[0].setOffline(true);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('offline')));
     await expect(f.employee.locator('[data-realtime="offline"]')).toContainText('may be out of date');
-    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
-    await expect(f.employee.getByRole('button', { name: 'Place order', exact: true })).toBeDisabled();
+    await f.employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.name, exact: true }).click();
+    await expect(f.employee.getByRole('button', { name: 'Send order (1)', exact: true })).toBeDisabled();
     await staffCard.getByRole('button', { name: 'Mark delivered', exact: true }).click();
     await f.contexts[0].setOffline(false);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -110,9 +109,9 @@ test('uncertain responses retain an isolated frozen draft and idempotency key; o
       } else await route.continue();
     });
     await f.employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.name, exact: true }).click();
-    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
+    await f.employee.getByRole('button', { name: 'Note (optional)', exact: true }).click();
     await f.employee.getByLabel('Note (optional)', { exact: false }).fill('Keep this draft');
-    await f.employee.getByRole('button', { name: 'Place order', exact: true }).click();
+    await f.employee.getByRole('button', { name: 'Send order (1)', exact: true }).click();
     await expect(f.employee.getByText('This order is locked until its outcome is known.', { exact: false })).toBeVisible();
     await f.contexts[0].setOffline(true);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('offline')));

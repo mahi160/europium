@@ -6,7 +6,7 @@ const password = 'simple-browser-admin-password-123';
 test.use({ isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
 
 for (const width of [390, 320]) {
-  test(`mobile kiosk keeps Add reachable and localizes quantities at ${width}px`, async ({ page, browserName }) => {
+  test(`mobile kiosk keeps Send reachable and localizes quantities at ${width}px`, async ({ page, browserName }) => {
     await page.setViewportSize({ width, height: 844 });
     const setup = await page.request.get('/api/setup');
     if ((await setup.json()).setupRequired) {
@@ -29,29 +29,29 @@ for (const width of [390, 320]) {
     if (!lastItem) throw new Error('The seeded menu must include an available refreshment');
     for (const language of ['en', 'bn']) {
       await page.locator('.app-header select').selectOption(language);
-      await expect(page.getByRole('heading', { level: 1 })).toHaveText(language === 'en' ? 'Time for a little break.' : 'একটু বিরতি হোক।');
+      await expect(page.getByRole('heading', { level: 1 })).toHaveText(language === 'en' ? "Today's refreshments" : 'আজকের চা-নাস্তা');
       await expect(page.locator('[data-realtime="current"]')).toBeVisible();
-      await expect(page.locator('.kiosk-basket span')).toHaveText(language === 'en' ? '0' : '০');
+      const send = page.getByRole('button', { name: language === 'en' ? 'Send order (0)' : 'অর্ডার পাঠান (০)', exact: true });
+      await expect(send).toBeDisabled();
       await page.evaluate(() => scrollTo(0, 0));
       await page.screenshot({ path: `/tmp/kiosk-mobile-${browserName}-${language}-${width}.png`, fullPage: true, animations: 'disabled' });
-      const add = await page.locator('.kiosk-add').boundingBox();
-      expect(add).not.toBeNull();
-      if (!add) throw new Error('Missing Add button');
-      expect(add.y + add.height).toBeLessThanOrEqual(844);
-      expect(add.height).toBeGreaterThanOrEqual(44);
-      const controls = await page.locator('.kiosk-stepper button').evaluateAll(buttons => buttons.map(button => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })));
-      expect(controls.every(control => control.width >= 44 && control.height >= 44)).toBe(true);
+      const bar = await send.boundingBox();
+      expect(bar).not.toBeNull();
+      if (!bar) throw new Error('Missing Send button');
+      expect(bar.y + bar.height).toBeLessThanOrEqual(844);
+      expect(bar.height).toBeGreaterThanOrEqual(44);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      console.log(`${browserName} ${width}px ${language}: Add ends at ${Math.round(add.y + add.height)}px / 844px`);
       // Every menu choice must remain reachable by touch.
       const lastChoice = page.locator('.kiosk-choices').getByRole('button', { name: lastItem.name, exact: true });
       await lastChoice.tap();
-      await expect(page.locator('#chosen-name')).toHaveText(lastItem.name);
-      await expect(lastChoice).toHaveAttribute('aria-pressed', 'true');
-      await page.locator('.kiosk-add').tap();
-      await expect(page.locator('.kiosk-basket span')).toHaveText(language === 'en' ? '1' : '১');
-      await page.locator('.kiosk-order-lines button').tap();
-      await expect(page.locator('.kiosk-basket span')).toHaveText(language === 'en' ? '0' : '০');
+      const selectedSend = page.getByRole('button', { name: language === 'en' ? 'Send order (1)' : 'অর্ডার পাঠান (১)', exact: true });
+      await expect(selectedSend).toBeEnabled();
+      const controls = page.locator('.kiosk-order-lines button');
+      await expect(controls).toHaveCount(2);
+      const sizes = await controls.evaluateAll(buttons => buttons.map(button => ({ width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height })));
+      expect(sizes.every(control => control.width >= 44 && control.height >= 44)).toBe(true);
+      await page.getByRole('button', { name: language === 'en' ? `Decrease ${lastItem.name}` : `${lastItem.name} কমান`, exact: true }).tap();
+      await expect(send).toBeDisabled();
     }
   });
 }

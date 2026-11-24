@@ -5,8 +5,8 @@ import { menuItemResponseSchema, orderResponseSchema, ordersResponseSchema, setu
 const origin = 'http://localhost:5183';
 const headers = { Origin: origin };
 const adminPassword = 'browser-admin-password-123';
-const temporaryPassword = 'ordering-temporary-password-123';
-const personalPassword = 'ordering-personal-password-456';
+const temporaryPassword = '0007';
+const personalPassword = '0042';
 
 async function configuredEmployee(page: Page) {
   const setup = await page.request.get('/api/setup');
@@ -35,8 +35,8 @@ async function configuredEmployee(page: Page) {
   expect((await page.request.post('/api/auth/login', { headers, data: { username, password: temporaryPassword } })).ok()).toBe(true);
   expect((await page.request.post('/api/auth/change-password', { headers, data: { currentPassword: temporaryPassword, newPassword: personalPassword } })).ok()).toBe(true);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Order refreshments', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Increase ' + name, exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Today's refreshments", exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name, exact: true })).toBeVisible();
   return { item, name, username };
 }
 
@@ -47,34 +47,30 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await expect(page.getByLabel('Floor', { exact: false })).toHaveCount(0);
     await expect(page.getByLabel('Desk', { exact: false })).toHaveCount(0);
     const started = Date.now();
-    await page.getByRole('button', { name: 'Increase ' + name, exact: true }).click();
-    await page.getByRole('button', { name: 'Place order', exact: true }).click();
+    await page.getByRole('button', { name, exact: true }).click();
+    await page.getByRole('button', { name: 'Send order (1)', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Order placed.' })).toBeVisible();
     expect(Date.now() - started).toBeLessThan(15000);
     const card = page.getByRole('article').filter({ hasText: name });
-    await expect(card.getByRole('heading', { name: 'Pending', exact: true })).toBeVisible();
+    await expect(card.getByText('Pending', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    await page.getByRole('button', { name: 'Increase ' + name, exact: true }).click();
-    await page.getByRole('button', { name: 'দুধ', exact: true }).click();
-    await page.getByRole('button', { name: 'চিনি ছাড়া', exact: true }).click();
-    await expect(page.getByLabel('Note (optional)', { exact: false })).toHaveValue('দুধ, চিনি ছাড়া');
-    await page.getByRole('button', { name: 'দুধ', exact: true }).click();
+    await page.getByRole('button', { name, exact: true }).click();
+    await page.getByRole('button', { name: 'Note (optional)', exact: true }).click();
     await page.getByLabel('Note (optional)', { exact: false }).fill('চিনি ছাড়া, গরম');
     await page.reload();
     await expect(page.getByLabel('Note (optional)', { exact: false })).toHaveValue('চিনি ছাড়া, গরম');
-    await expect(page.getByRole('button', { name: 'চিনি ছাড়া', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: 'Place order', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Increase ' + name, exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Send order (1)', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Order placed.' })).toBeVisible();
     const override = page.getByRole('article').filter({ hasText: 'চিনি ছাড়া' });
-    await override.getByLabel('Cancellation reason', { exact: false }).fill('মিটিং শেষ');
     await override.getByRole('button', { name: 'Cancel order', exact: true }).click();
-    await expect(override.getByRole('heading', { name: 'Cancelled', exact: true })).toBeVisible();
-    await expect(override).toContainText('মিটিং শেষ');
+    await expect(override.getByText('Cancelled', { exact: true })).toBeVisible();
+    await expect(override.getByRole('button', { name: 'Cancel order', exact: true })).toHaveCount(0);
     const saved = ordersResponseSchema.parse(await (await page.request.get('/api/orders')).json()).orders;
     expect(saved.every((order) => order.floor === '৩' && order.desk === 'D12')).toBe(true);
-    await page.getByRole('button', { name: 'Increase ' + name, exact: true }).click();
+    await page.getByRole('button', { name, exact: true }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true, level: 1 })).toBeVisible();
     const persisted = await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('office-draft:')));
     expect(persisted).toEqual([]);
   });
@@ -90,10 +86,10 @@ test('a lost successful response retries the frozen request after reload without
     committedId = orderResponseSchema.parse(await response.json()).order.id;
     await route.abort('failed');
   });
-  await page.getByRole('button', { name: 'Increase ' + name, exact: true }).click();
-  await page.getByRole('button', { name: 'Place order', exact: true }).click();
+  await page.getByRole('button', { name, exact: true }).click();
+  await page.getByRole('button', { name: 'Send order (1)', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Cannot reach the office server');
-  await expect(page.getByRole('button', { name: 'Increase ' + name, exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name, exact: true })).toBeDisabled();
   await page.unroute('**/api/orders');
   await page.reload();
   await expect(page.getByRole('button', { name: 'Retry same order', exact: true })).toBeVisible();

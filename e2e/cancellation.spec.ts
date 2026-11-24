@@ -52,8 +52,7 @@ async function office(page: Page, browser: Browser) {
 
 async function placeOrder({ employee, staff, name }: Awaited<ReturnType<typeof office>>) {
   await employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name, exact: true }).click();
-  await employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
-  await employee.getByRole('button', { name: 'Place order', exact: true }).click();
+  await employee.getByRole('button', { name: 'Send order (1)', exact: true }).click();
   const employeeCard = employee.getByRole('article').filter({ hasText: name });
   const staffCard = staff.getByRole('article').filter({ hasText: name });
   const accept = staffCard.getByRole('button', { name: 'Accept order', exact: true });

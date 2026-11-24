@@ -147,6 +147,7 @@
   "emptyMenu": "No refreshments on the menu yet.",
   "yourOrder": "Your order",
   "placeOrder": "Place order",
+  "sendOrder": "Send order ({{countText}})",
   "retryOrder": "Retry same order",
   "chooseItems": "Add something from the menu.",
   "remove": "Remove",

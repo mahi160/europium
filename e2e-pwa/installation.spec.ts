@@ -89,7 +89,7 @@ for (const blocker of ['none', 'draft', 'dialog'] as const) {
     const dialog = page.getByRole('dialog', { name: 'Change PIN' });
     if (blocker === 'draft') {
       await page.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.item.name, exact: true }).click();
-      await page.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
+      await page.getByRole('button', { name: 'Note (optional)', exact: true }).click();
       await page.getByLabel('Note (optional)', { exact: false }).fill('Keep this note');
     } else if (blocker === 'dialog') {
       await page.getByRole('button', { name: f.employee.name, exact: true }).click();
@@ -118,7 +118,7 @@ for (const blocker of ['none', 'draft', 'dialog'] as const) {
         expect(await script.getAttribute('src')).toBe(previous);
         if (blocker === 'draft') {
           await expect(reload).toBeDisabled();
-          await page.getByRole('button', { name: 'Remove ' + f.item.name, exact: true }).click();
+          await page.getByRole('button', { name: 'Decrease ' + f.item.name, exact: true }).click();
           await expect(reload).toBeDisabled();
           await page.getByLabel('Note (optional)', { exact: false }).clear();
         } else {

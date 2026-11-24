@@ -26,7 +26,7 @@ export function ErrorNotice({ error, retry }: { error: Error | null; retry?: () 
   const key = error instanceof ApiError ? error.code : 'INTERNAL_ERROR';
   return <Alert variant="destructive"><AlertDescription>{t('errors.' + key, { defaultValue: t('errors.INTERNAL_ERROR') })}</AlertDescription>{retry && <AlertAction><Button type="button" variant="ghost" onClick={retry}>{t('retry')}</Button></AlertAction>}</Alert>;
 }
-export function Form({ title, children, submit, onSubmit, description, disabled = false, compact = false, hideTitle = false, showSaved = true, variant }: { title: string; children: ReactNode; submit: string; description?: string; disabled?: boolean; compact?: boolean; hideTitle?: boolean; showSaved?: boolean; variant?: 'secondary' | 'destructive'; onSubmit: (data: FormData) => Promise<void> }) {
+export function Form({ title, children, submit, onSubmit, description, disabled = false, compact = false, hideTitle = false, showSaved = true, variant, submitClassName }: { title: string; children: ReactNode; submit: string; description?: string; disabled?: boolean; compact?: boolean; hideTitle?: boolean; showSaved?: boolean; submitClassName?: string; variant?: 'secondary' | 'destructive'; onSubmit: (data: FormData) => Promise<void> }) {
   const id = useId();
   const [error, setError] = useState<Error | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,7 +45,7 @@ export function Form({ title, children, submit, onSubmit, description, disabled 
   }}>
     <h2 id={id} className={compact || hideTitle ? 'sr-only' : undefined}>{title}</h2>{description && <FieldDescription>{description}</FieldDescription>}
     {children}{error && <div ref={errorSummary} tabIndex={-1}><ErrorNotice error={error}/></div>}
-    <div className="flex flex-wrap items-center gap-3"><Button type="submit" variant={variant} disabled={busy || disabled || offline}>{busy ? t('saving') : submit}</Button>
+    <div className={'flex flex-wrap items-center gap-3 ' + (submitClassName ?? '')}><Button type="submit" variant={variant} disabled={busy || disabled || offline}>{busy ? t('saving') : submit}</Button>
     {saved && showSaved && <span role="status">{t('saved')}</span>}</div>
   </form>;
 }

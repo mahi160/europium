@@ -16,6 +16,7 @@ import { ErrorNotice, Field, Form, text } from '../components/forms';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { Card, CardContent } from '../components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
 import { Field as FieldRoot, FieldDescription, FieldLabel } from '../components/ui/field';
 import { NativeSelect, NativeSelectOption } from '../components/ui/native-select';
 import { Checkbox } from '../components/ui/checkbox';
@@ -36,12 +37,10 @@ export function Ordering({ user }: { user: PublicUser }) {
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<Error | null>(null);
   const confirmation = useRef<HTMLElement>(null);
-  const review = useRef<HTMLElement>(null);
-  const [chosenId, setChosenId] = useState<string | null>(null);
-  const [servings, setServings] = useState(1);
+
   const [added, setAdded] = useState('');
+  const [noteOpen, setNoteOpen] = useState(draft.note !== '');
   const items = (menu.data?.items ?? []).filter((item) => !item.archived);
-  const chosen = items.find((item) => item.id === chosenId) ?? items[0];
   useEffect(() => {
     if (submittedId) { confirmation.current?.focus(); confirmation.current?.scrollIntoView({ block: 'start' }); }
   }, [submittedId]);
@@ -68,50 +67,45 @@ export function Ordering({ user }: { user: PublicUser }) {
       throw cause instanceof z.ZodError && !store.getState().attempted ? new ApiError('VALIDATION_ERROR') : cause;
     } finally { setBusy(false); }
   }
+  function changeQuantity(id: string, delta: number) {
+    const state = store.getState();
+    const quantity = (state.quantities[id] ?? 0) + delta;
+    if (busy || state.attempted || quantity < 0 || !Number.isSafeInteger(quantity)) return;
+    state.edit({ quantities: { ...state.quantities, [id]: quantity } });
+    setSubmittedId(null);
+    if (delta > 0) setAdded(t('kiosk.added', { name: items.find((item) => item.id === id)?.name }));
+    else setAdded('');
+  }
   return <div className="kiosk-ordering">
-    <div className="kiosk-toolbar"><RealtimeStatus/><Button className="kiosk-basket" variant="secondary" onClick={() => { review.current?.focus(); review.current?.scrollIntoView({ block: 'start' }); }}>{t('yourOrder')} <span>{number(total)}</span></Button></div>
-    <div className="kiosk-content">
-      <section className="kiosk-copy" aria-labelledby="kiosk-heading">
-        <h1 id="kiosk-heading">{t('kiosk.title')}</h1>
-        <p>{t('kiosk.intro')}</p>
-        <h2 className="sr-only">{t('refreshments')}</h2>
-        {menu.isPending && <p role="status">{t('loading')}</p>}
-        <ErrorNotice error={menu.error} retry={() => void menu.refetch()}/>
-        <div className="kiosk-choices" role="group" aria-label={t('kiosk.selection')}>
-          {items.map((item) => <Button key={item.id} variant="outline" aria-pressed={chosen?.id === item.id} onClick={() => { setChosenId(item.id); setServings(1); setAdded(''); }}>{item.name}{!item.available && <span className="sr-only"> · {t('unavailable')}</span>}</Button>)}
-        </div>
-        {menu.data && items.length === 0 && <FieldDescription>{t('emptyMenu')}</FieldDescription>}
-      </section>
-      {chosen && <section className="kiosk-product" aria-labelledby="chosen-name">
-        <div className="kiosk-stage"><RefreshmentArt category={chosen.category}/><p>{t('kiosk.prepared')}</p></div>
-        <div className="kiosk-choice">
-          <div><h2 id="chosen-name">{chosen.name}</h2><p>{chosen.available ? chosen.unit : t('unavailable')}</p></div>
-          <div className="kiosk-stepper" role="group" aria-label={t('kiosk.servings')}>
-            <Button variant="outline" size="icon" aria-label={t('kiosk.decrease')} disabled={busy || frozen || servings === 1} onClick={() => setServings(servings - 1)}><IconMinus aria-hidden="true"/></Button>
-            <output aria-label={t('kiosk.servings')}>{number(servings)}</output>
-            <Button variant="outline" size="icon" aria-label={t('kiosk.increase')} disabled={busy || frozen || servings >= Number.MAX_SAFE_INTEGER - (draft.quantities[chosen.id] ?? 0)} onClick={() => setServings(servings + 1)}><IconPlus aria-hidden="true"/></Button>
-          </div>
-        </div>
-        <Button className="kiosk-add" disabled={busy || frozen || !chosen.available || servings > Number.MAX_SAFE_INTEGER - (draft.quantities[chosen.id] ?? 0)} onClick={() => {
-          draft.edit({ quantities: { ...draft.quantities, [chosen.id]: (draft.quantities[chosen.id] ?? 0) + servings } });
-          setSubmittedId(null);
-          setAdded(t('kiosk.added', { name: chosen.name }));
-        }}>{t('kiosk.add', { quantity: number(servings) })}<span aria-hidden="true">→</span></Button>
-        <p className="kiosk-added" role="status">{added}</p>
-      </section>}
+    <div className="flex flex-wrap items-baseline justify-between gap-3"><h1>{t('refreshments')}</h1><RealtimeStatus/></div>
+    <p className="kiosk-delivery">{location ? <>{t('kiosk.delivery')} <strong>{location}</strong></> : t('kiosk.locationHelp')}</p>
+    {menu.isPending && <p role="status">{t('loading')}</p>}
+    <ErrorNotice error={menu.error} retry={() => void menu.refetch()}/>
+    <div className="kiosk-choices" role="group" aria-label={t('kiosk.selection')}>
+      {items.map((item) => <Button key={item.id} variant="outline" disabled={busy || frozen || !item.available || draft.quantities[item.id] === Number.MAX_SAFE_INTEGER} onClick={() => changeQuantity(item.id, 1)}>
+        {item.name}{!item.available && <span> · {t('unavailable')}</span>}
+      </Button>)}
     </div>
-    <footer className="kiosk-delivery"><p>{location ? <>{t('kiosk.delivery')} <strong>{location}</strong></> : t('kiosk.locationHelp')}</p><p>{t('kiosk.footer')}</p></footer>
-    <section className="kiosk-review" ref={review} tabIndex={-1} aria-label={t('kiosk.review')}>
-      <div className="kiosk-section-heading"><h2>{t('yourOrder')}</h2><span>{t('kiosk.count', { quantity: number(total) })}</span></div>
-      {selected.length > 0 || frozen || draft.note !== '' ? <Form title={t('yourOrder')} hideTitle submit={t(frozen ? 'retryOrder' : 'placeOrder')} disabled={offline || (selected.length === 0 && !frozen)} showSaved={false} onSubmit={submit}>
-        <ul className="kiosk-order-lines">{selected.map(([id, quantity]) => {
+    {menu.data && items.length === 0 && <FieldDescription>{t('emptyMenu')}</FieldDescription>}
+    <p className="sr-only" role="status">{added}</p>
+    <section className="kiosk-review" aria-label={t('kiosk.review')}>
+      <h2>{t('yourOrder')}</h2>
+      <Form title={t('yourOrder')} hideTitle submit={frozen ? t('retryOrder') : t('sendOrder', { countText: number(total) })} submitClassName="order-send-bar" disabled={offline || (!selected.length && !frozen)} showSaved={false} onSubmit={submit}>
+        {selected.length === 0 ? <FieldDescription>{t('chooseItems')}</FieldDescription> : <ul className="kiosk-order-lines">{selected.map(([id, quantity]) => {
           const item = items.find((item) => item.id === id);
           const name = item?.name ?? t('removedItem');
-          return <li key={id}><div><strong>{name}</strong>{item && !item.available && <FieldDescription>{t('unavailable')}</FieldDescription>}</div><span>× {number(quantity)}</span><Button variant="ghost" aria-label={t('removeItem', { name })} disabled={busy || frozen} onClick={() => { draft.edit({ quantities: { ...draft.quantities, [id]: 0 } }); setAdded(''); }}>{t('remove')}</Button></li>;
-        })}</ul>
-        <Field label={t('orderNote')} name="note" value={draft.note} disabled={busy || frozen} maxLength={500} onChange={(event) => draft.edit({ note: event.target.value })}/>
+          return <li key={id}><div><strong>{name}</strong>{!item?.available && <FieldDescription>{t('unavailable')}</FieldDescription>}</div>
+            <Button type="button" variant="outline" size="icon" aria-label={t('decrease', { name })} disabled={busy || frozen} onClick={() => changeQuantity(id, -1)}><IconMinus aria-hidden="true"/></Button>
+            <span>{number(quantity)}</span>
+            <Button type="button" variant="outline" size="icon" aria-label={t('increase', { name })} disabled={busy || frozen || !item?.available || quantity === Number.MAX_SAFE_INTEGER} onClick={() => changeQuantity(id, 1)}><IconPlus aria-hidden="true"/></Button>
+          </li>;
+        })}</ul>}
+        <Collapsible open={noteOpen} onOpenChange={setNoteOpen}>
+          <CollapsibleTrigger render={<Button variant="ghost"/>}>{t('orderNote')}</CollapsibleTrigger>
+          <CollapsibleContent><Field label={t('orderNote')} name="note" value={draft.note} disabled={busy || frozen} maxLength={500} onChange={(event) => draft.edit({ note: event.target.value })}/></CollapsibleContent>
+        </Collapsible>
         {frozen && <Alert role="status"><AlertDescription>{t('retryHelp')}</AlertDescription></Alert>}
-      </Form> : <FieldDescription>{t('chooseItems')}</FieldDescription>}
+      </Form>
       {submittedId && <section className="kiosk-confirmation" ref={confirmation} tabIndex={-1} aria-label={t('orderPlaced')}><p role="status">{t('orderPlaced')}</p></section>}
     </section>
     <section className="kiosk-history" aria-labelledby="orders-heading">
@@ -123,13 +117,7 @@ export function Ordering({ user }: { user: PublicUser }) {
     </section>
   </div>;
 }
-function RefreshmentArt({ category }: { category: MenuItem['category'] }) {
-  return <svg className="refreshment-art" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {category === 'water' ? <><path d="M30 20h40l-5 64H35L30 20Z"/><path d="M33 46c12 7 22-7 35 0M39 72h16"/></>
-      : category === 'snack' ? <><path d="M15 46h70c-4 41-65 41-70 0ZM28 38l6-10 9 9 8-15 10 13 9-6 7 10M40 84h21"/></>
-      : <><path d="M22 42h49v22c0 17-49 17-49 0V42Z"/><path d="M71 45h7c17 0 17 20-7 20M16 84h62M37 16v14M52 12v18"/></>}
-  </svg>;
-}
+
 export function MenuManagement({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
   const categoryId = useId();

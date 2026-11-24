@@ -147,6 +147,7 @@
   "emptyMenu": "মেনুতে এখনো কোনো চা-নাস্তা নেই।",
   "yourOrder": "আপনার অর্ডার",
   "placeOrder": "অর্ডার দিন",
+  "sendOrder": "অর্ডার পাঠান ({{countText}})",
   "retryOrder": "একই অর্ডার আবার পাঠান",
   "chooseItems": "মেনু থেকে কিছু বেছে নিন।",
   "remove": "বাদ দিন",
