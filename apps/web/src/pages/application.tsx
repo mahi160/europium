@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/card';
 import { Field as FieldRoot, FieldDescription, FieldLabel } from '../components/ui/field';
 import { NativeSelect, NativeSelectOption } from '../components/ui/native-select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../components/ui/collapsible';
+import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { IconCoffee } from '@tabler/icons-react';
 import { ErrorNotice, Field, Form, Password, text } from '../components/forms';
 import { OrderFocus } from '../components/order-focus';
@@ -86,7 +87,7 @@ export function Application() {
             <Link to="/admin" className={buttonVariants({ variant: adminPage ? 'secondary' : 'ghost' })} aria-current={adminPage ? 'page' : undefined}>{t('admin')}</Link>
           </nav>}
           <LanguagePicker user={user}/>
-          <span className="account-name text-sm">{user.name}</span>
+          <AccountMenu key={user.id} user={user}/>
           <Button variant="ghost" disabled={offline} onClick={() => void logout()}>{t('logout')}</Button>
         </div>
       </header>
@@ -105,6 +106,28 @@ export function Application() {
       </main>
     </div>
   </Realtime>;
+}
+function AccountMenu({ user }: { user: PublicUser }) {
+  const { t } = useTranslation();
+  const offline = useOffline();
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const label = t(user.role === 'admin' ? 'changePassword' : 'changePin');
+  return <div className="relative">
+    <Collapsible><CollapsibleTrigger render={<Button variant="ghost" className="account-name"/>}><span className="truncate">{user.name}</span></CollapsibleTrigger>
+      <CollapsibleContent className="absolute end-0 z-20 min-w-max rounded-lg border bg-popover p-2">
+        <Dialog open={open} onOpenChange={(next) => { if (next) setSaved(false); setOpen(next); }}>
+          <DialogTrigger render={<Button variant="ghost" disabled={offline}/>}>{label}</DialogTrigger>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader><DialogTitle>{label}</DialogTitle></DialogHeader>
+            <PasswordForm user={user} onSaved={() => { setOpen(false); setSaved(true); }}/>
+            <DialogClose render={<Button variant="outline"/>}>{t('close')}</DialogClose>
+          </DialogContent>
+        </Dialog>
+      </CollapsibleContent>
+    </Collapsible>
+    {saved && <span role="status" className="text-sm">{t('saved')}</span>}
+  </div>;
 }
 function LocalAccess({ open }: { open: boolean }) {
   const { t } = useTranslation();
@@ -141,13 +164,15 @@ function Auth({ setupRequired }: { setupRequired: boolean }) {
       {pin && <Collapsible><CollapsibleTrigger render={<Button variant="ghost"/>}>{t('signInHelp')}</CollapsibleTrigger><CollapsibleContent><FieldDescription>{t('pinLoginHelp')}</FieldDescription></CollapsibleContent></Collapsible>}
     </Form>{!setupRequired && <FieldDescription>{t(pin ? 'forgotPin' : 'forgot')}</FieldDescription>}</CardContent></Card><LocalAccess open={setupRequired}/></div>;
 }
-function PasswordForm({ user, required = false }: { user: PublicUser; required?: boolean }) {
+function PasswordForm({ user, required = false, onSaved }: { user: PublicUser; required?: boolean; onSaved?: () => void }) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const pin = user.role !== 'admin';
   const title = t(pin ? required ? 'changePinRequired' : 'changePin' : required ? 'changeRequired' : 'changePassword');
-  return <Card><CardContent>{required && <h1>{title}</h1>}<Form hideTitle={required} title={title} description={t(pin ? required ? 'changePinRequiredHelp' : 'personalPinHelp' : required ? 'changeRequiredHelp' : 'personalPasswordHelp')} submit={t(pin ? 'changePin' : 'changePassword')} onSubmit={async (data) => {
+  const form = <Form hideTitle showSaved={false} title={title} description={t(pin ? required ? 'changePinRequiredHelp' : 'personalPinHelp' : required ? 'changeRequiredHelp' : 'personalPasswordHelp')} submit={t(pin ? 'changePin' : 'changePassword')} onSubmit={async (data) => {
     const result = await api('/auth/change-password', userResponse, 'POST', { currentPassword: text(data,'currentPassword'), newPassword: text(data,'newPassword') });
     client.setQueryData(['session'], result);
-  }}><Password pin={pin} label={t(pin ? 'currentPin' : 'currentPassword')} name="currentPassword" current/><Password pin={pin} label={t(pin ? 'newPin' : 'newPassword')} name="newPassword"/></Form></CardContent></Card>;
+    onSaved?.();
+  }}><Password pin={pin} label={t(pin ? 'currentPin' : 'currentPassword')} name="currentPassword" current/><Password pin={pin} label={t(pin ? 'newPin' : 'newPassword')} name="newPassword"/></Form>;
+  return required ? <Card><CardContent><h1>{title}</h1>{form}</CardContent></Card> : form;
 }

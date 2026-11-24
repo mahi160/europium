@@ -1,17 +1,50 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const headers = { Origin: 'http://localhost:5183' };
-const adminPassword = 'pin-browser-admin-password-123';
+const adminPassword = 'browser-admin-password-123';
 
-test('first PIN setup explains an unchanged PIN, supports corrections, and presents one accessible four-box control', async ({ page }) => {
+async function signInAdmin(page: Page) {
   const setup = await page.request.get('/api/setup');
   if ((await setup.json()).setupRequired) {
     expect((await page.request.post('/api/setup', { headers, data: {
-      name: 'PIN administrator', username: 'pin_admin', password: adminPassword,
+      name: 'Office administrator', username: 'office_admin', password: adminPassword,
       setupToken: 'browser-test-setup-token-32-characters', language: 'en', floor: '', desk: '',
     } })).status()).toBe(201);
   }
-  expect((await page.request.post('/api/auth/login', { headers, data: { username: 'pin_admin', password: adminPassword } })).status()).toBe(200);
+  expect((await page.request.post('/api/auth/login', { headers, data: { username: 'office_admin', password: adminPassword } })).status()).toBe(200);
+}
+
+test('an employee changes their own PIN from the account menu and stays signed in', async ({ page }) => {
+  await signInAdmin(page);
+  const username = `change_pin_${Date.now()}`;
+  const name = 'Voluntary PIN change';
+  expect((await page.request.post('/api/users', { headers, data: {
+    name, username, password: '0007', role: 'employee', language: 'en', floor: '', desk: '',
+  } })).status()).toBe(201);
+  expect((await page.request.post('/api/auth/login', { headers, data: { username, password: '0007' } })).status()).toBe(200);
+  expect((await page.request.post('/api/auth/change-password', { headers, data: { currentPassword: '0007', newPassword: '0042' } })).status()).toBe(200);
+  await page.goto('/');
+  await page.getByRole('button', { name, exact: true }).click();
+  const change = page.getByRole('button', { name: 'Change PIN', exact: true });
+  await change.click();
+  const dialog = page.getByRole('dialog', { name: 'Change PIN' });
+  const current = dialog.getByLabel('Current PIN', { exact: false });
+  const next = dialog.getByLabel('New PIN', { exact: false });
+  await expect(next).toHaveAttribute('maxlength', '4');
+  await current.fill('9999');
+  await next.fill('2468');
+  const submit = dialog.getByRole('button', { name: 'Change PIN', exact: true });
+  await submit.click();
+  await expect(dialog.getByRole('alert')).toHaveText('The current sign-in credential is incorrect.');
+  await current.fill('0042');
+  await submit.click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('status').filter({ hasText: /^Saved$/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+});
+
+test('first PIN setup explains an unchanged PIN, supports corrections, and presents one accessible four-box control', async ({ page }) => {
+  await signInAdmin(page);
   const username = `pin_controls_${Date.now()}`;
   expect((await page.request.post('/api/users', { headers, data: {
     name: 'PIN control test', username, password: '0007', role: 'employee', language: 'en', floor: '', desk: '',
@@ -56,14 +89,7 @@ test('first PIN setup explains an unchanged PIN, supports corrections, and prese
 });
 
 test('adding employees and staff defaults to 0000, while administrators still need a password', async ({ page }) => {
-  const setup = await page.request.get('/api/setup');
-  if ((await setup.json()).setupRequired) {
-    expect((await page.request.post('/api/setup', { headers, data: {
-      name: 'PIN administrator', username: 'pin_admin', password: adminPassword,
-      setupToken: 'browser-test-setup-token-32-characters', language: 'en', floor: '', desk: '',
-    } })).status()).toBe(201);
-  }
-  expect((await page.request.post('/api/auth/login', { headers, data: { username: 'pin_admin', password: adminPassword } })).status()).toBe(200);
+  await signInAdmin(page);
   await page.goto('/users');
   for (const role of ['employee', 'staff']) {
     await page.getByRole('button', { name: 'Add person', exact: true }).click();
@@ -83,7 +109,7 @@ test('adding employees and staff defaults to 0000, while administrators still ne
     expect(login.status()).toBe(200);
     expect((await login.json()).user.mustChangePassword).toBe(true);
     expect((await page.request.post('/api/auth/logout', { headers, data: {} })).status()).toBe(200);
-    expect((await page.request.post('/api/auth/login', { headers, data: { username: 'pin_admin', password: adminPassword } })).status()).toBe(200);
+    expect((await page.request.post('/api/auth/login', { headers, data: { username: 'office_admin', password: adminPassword } })).status()).toBe(200);
     await page.goto('/users');
   }
 });
