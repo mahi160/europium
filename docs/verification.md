@@ -4,16 +4,30 @@ Production-readiness tickets 01–13 are implemented. No registry publication, p
 
 ## Production-readiness checks
 
-Verified at `b116ce0`:
+Verified at `cb20ec6` (Playwright suites and web build at `306ae29`, which differs only in `Caddyfile`):
 
 | Command                                                       | Outcome                                                                                                            |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `pnpm typecheck`                                              | Passed.                                                                                                            |
-| `pnpm test`                                                   | 96 passed across 16 files.                                                                                         |
+| `pnpm test`                                                   | 99 passed across 16 files.                                                                                         |
+| `pnpm lint`                                                   | Passed with no warnings.                                                                                           |
+| `pnpm fmt --check`                                            | Passed.                                                                                                            |
 | `pnpm exec playwright test`                                   | 22 passed.                                                                                                         |
 | `pnpm exec playwright test --config playwright.ui.config.ts`  | 20 passed.                                                                                                         |
 | `pnpm --filter @office-service/web build`                     | Passed. Nonblocking bundle-size and plugin deprecation warnings remain.                                            |
 | `pnpm exec playwright test --config playwright.pwa.config.ts` | 9 passed, including two-build activation, old precache cleanup, and protection for unsent drafts and open dialogs. |
+
+## Local installer smoke check
+
+Run on macOS Docker Desktop (Docker 29.8.2, Compose v5.6.1, `linux/aarch64` daemon) from a clean `git archive` export, with `IMAGE_SOURCE=local` and `OFFICE_ADDRESS=192.168.50.20`. Port 443 was reached through `127.0.0.1` with curl `--connect-to` and `--cacert` set to the exported root certificate. The test project, volumes and images were removed afterwards.
+
+- A clean install built both images and started `api` and `caddy` in about 80 seconds. `.env` was created with mode 600.
+- The first run found a deployment blocker: clients connecting to an IP address send no SNI, and Docker NAT hides the host IP from Caddy, so every TLS handshake failed with `tlsv1 alert internal error`. Commit `cb20ec6` adds `default_sni {$OFFICE_ADDRESS}`. After rebuilding the web image, the handshake verified against the exported root.
+- HTTP redirected to HTTPS (308). The SPA fallback returned 200. `/api/stats` returned 404 with `STATS_TOKEN` unset. The first-admin setup returned 201, login and session returned 200, and setup was then closed.
+- After `docker compose stop` and `start`, the root CA fingerprint was unchanged and the administrator could still sign in.
+- An installer rerun exited 0 without changes: the `.env` hash, running services and CA fingerprint were all unchanged.
+
+This does not cover a native Ubuntu host, amd64, other LAN clients, or browser and OS certificate trust.
 
 ## Ticket 14: Real-device acceptance
 
@@ -62,11 +76,11 @@ No known automated test failures remain. The checks above do not replace the dep
 
 ## Unverified acceptance evidence
 
-- A clean installer run, rerun, real Compose container restart and certificate-trusted LAN browser access.
+- Installer runs on a real Ubuntu host and certificate-trusted browser access from other LAN devices. The local Docker Desktop smoke check above covers the clean install, rerun and container restart only.
 - Published paired AMD64/ARM64 images and AMD64 runtime compatibility. The workflow is prepared but was not executed.
 - A scheduled daily execution, actual encrypted SSH/SCP transfer to a separate backup host, successful paired-image upgrade and clean replacement-host restore.
 - Actual retained CA trust on office devices after restore. Tests preserve CA bytes; they cannot establish OS trust.
 - Supported Android and iPhone Home Screen installation, private-CA HTTPS, initial/reminder push delivery and notification navigation on hardware.
-- A complete final visual-inspector/formatting gate. Screenshots were inspected manually; no automated formatting rewrite was performed.
+- A complete final visual-inspector gate. Screenshots were inspected manually. `pnpm fmt` has since been applied, and all automated suites passed afterwards.
 
 Use the deployment and backup documents for the operator-controlled checks. Failed or missing evidence must not be treated as production acceptance.
