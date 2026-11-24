@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './test';
+import { type Page } from '@playwright/test';
 
 const headers = { Origin: 'http://localhost:5183' };
 const adminPassword = 'browser-admin-password-123';
@@ -43,7 +44,7 @@ test('an employee changes their own PIN from the account menu and stays signed i
   await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
 });
 
-test('first PIN setup explains an unchanged PIN, supports corrections, and presents one accessible four-box control', async ({ page }) => {
+test('first PIN setup explains an unchanged PIN, supports corrections, and presents accessible four-digit fields', async ({ page }) => {
   await signInAdmin(page);
   const username = `pin_controls_${Date.now()}`;
   expect((await page.request.post('/api/users', { headers, data: {
@@ -60,8 +61,12 @@ test('first PIN setup explains an unchanged PIN, supports corrections, and prese
   await page.getByRole('button', { name: 'Change PIN', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('different from your current');
   await expect(page.getByRole('heading', { name: 'Choose your own PIN', exact: true })).toBeVisible();
-  await expect(page.locator('.pin-slots')).toHaveCount(2);
-  await expect(page.locator('.pin-slot')).toHaveCount(8);
+  for (const field of [current, next]) {
+    await expect(field).toHaveAttribute('inputmode', 'numeric');
+    await expect(field).toHaveAttribute('minlength', '4');
+    await expect(field).toHaveAttribute('maxlength', '4');
+    await expect(field).toHaveAttribute('pattern', '[0-9]{4}');
+  }
   await expect(next).toHaveAttribute('autocomplete', 'new-password');
   await next.fill('004');
   await page.getByRole('button', { name: 'Change PIN', exact: true }).click();
@@ -74,30 +79,33 @@ test('first PIN setup explains an unchanged PIN, supports corrections, and prese
   await next.fill('0042');
   await page.getByRole('button', { name: 'Show PIN', exact: true }).last().click();
   await expect(next).toHaveValue('0042');
-  await expect(page.locator('.pin-slots').last()).toHaveText('0042');
+  await page.getByRole('button', { name: 'Hide PIN', exact: true }).click();
+  await expect(next).toHaveAttribute('type', 'password');
   await page.setViewportSize({ width: 390, height: 844 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/pin-setup-phone.png', fullPage: true });
   await page.getByRole('button', { name: 'Change PIN', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Profile', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'PIN control test', exact: true })).toBeVisible();
+  await expect(page).toHaveURL('/');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(page.locator('select#login-role')).toBeVisible();
-  await page.getByLabel('PIN', { exact: false }).fill('0042');
+  await expect(page.getByLabel('Sign in as')).toHaveCount(0);
+  await page.getByLabel(/^PIN or password \*$/).fill('0042');
   await page.getByLabel('Username', { exact: false }).fill(username);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('link', { name: 'Profile', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'PIN control test', exact: true })).toBeVisible();
+  await expect(page).toHaveURL('/');
 });
 
 test('adding employees and staff defaults to 0000, while administrators still need a password', async ({ page }) => {
   await signInAdmin(page);
-  await page.goto('/users');
+  await page.goto('/admin');
   for (const role of ['employee', 'staff']) {
     await page.getByRole('button', { name: 'Add person', exact: true }).click();
-    await expect(page.getByLabel('PIN', { exact: false })).toHaveValue('0000');
+    await expect(page.getByLabel(/^PIN \*$/)).toHaveValue('0000');
     await page.getByLabel('Role', { exact: true }).selectOption('admin');
-    await expect(page.getByLabel('Password', { exact: false })).toHaveValue('');
+    await expect(page.getByLabel(/^Password \*$/)).toHaveValue('');
     await page.getByLabel('Role', { exact: true }).selectOption(role);
-    await expect(page.getByLabel('PIN', { exact: false })).toHaveValue('0000');
+    await expect(page.getByLabel(/^PIN \*$/)).toHaveValue('0000');
     const username = `default_${role}_${Date.now()}`;
     await page.getByLabel('Username', { exact: false }).fill(username);
     await page.getByLabel('Full name').fill(username);
@@ -110,6 +118,6 @@ test('adding employees and staff defaults to 0000, while administrators still ne
     expect((await login.json()).user.mustChangePassword).toBe(true);
     expect((await page.request.post('/api/auth/logout', { headers, data: {} })).status()).toBe(200);
     expect((await page.request.post('/api/auth/login', { headers, data: { username: 'office_admin', password: adminPassword } })).status()).toBe(200);
-    await page.goto('/users');
+    await page.goto('/admin');
   }
 });

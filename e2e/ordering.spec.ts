@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './test';
+import { type Page } from '@playwright/test';
 import { menuItemResponseSchema, orderResponseSchema, ordersResponseSchema, setupSchema } from '@office-service/shared';
 
 const origin = 'http://localhost:5183';
@@ -20,7 +21,7 @@ async function configuredEmployee(page: Page) {
     expect(response.status()).toBe(201);
   }
   const login = await page.request.post('/api/auth/login', { headers, data: { username: 'office_admin', password: adminPassword } });
-  expect(login.ok()).toBe(true);
+  expect(login.status(), await login.text()).toBe(200);
   const unique = randomUUID().replaceAll('-', '').slice(0, 12);
   const name = 'দুধ চা ' + unique;
   const menu = await page.request.post('/api/menu', { headers, data: { name, category: 'tea', unit: 'কাপ', available: true, archived: false } });

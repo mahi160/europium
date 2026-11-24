@@ -138,13 +138,11 @@ function Auth({ setupRequired }: { setupRequired: boolean }) {
   const { t, i18n } = useTranslation();
   const client = useQueryClient();
   const [done, setDone] = useState(false);
-  const [admin, setAdmin] = useState(false);
-  const pin = !setupRequired && !admin;
   return <div className="grid gap-4"><Card><CardHeader><h1>{t(setupRequired ? 'setup' : 'login')}</h1><FieldDescription>{t('authIntro')}</FieldDescription></CardHeader>
     <CardContent className="grid gap-4"><Form hideTitle showSaved={false} title={t(setupRequired ? 'setup' : 'login')} description={setupRequired ? t('setupHelp') : undefined} submit={t(setupRequired ? 'setup' : 'login')} onSubmit={async (data) => {
       if (setupRequired) {
         await api('/setup', userResponse, 'POST', { name: text(data,'name'), username: text(data,'username'), password: text(data,'password'), setupToken: text(data,'setupToken'), language: i18n.language, floor: '', desk: '' });
-        setDone(true); setAdmin(true); await client.invalidateQueries({ queryKey: ['setup'] });
+        setDone(true); await client.invalidateQueries({ queryKey: ['setup'] });
       } else {
         const result = await api('/auth/login', userResponse, 'POST', { username: text(data,'username'), password: text(data,'password') });
         applyLanguage(result.user.language); client.setQueryData(['session'], result);
@@ -152,13 +150,11 @@ function Auth({ setupRequired }: { setupRequired: boolean }) {
     }}>
       {done && <p role="status">{t('setupDone')}</p>}
       {setupRequired && <><Field label={t('setupToken')} name="setupToken" type="password" autoComplete="off" required minLength={32} maxLength={256}/><Field label={t('name')} name="name" autoComplete="name" required maxLength={100}/></>}
-      {!setupRequired && <FieldRoot><FieldLabel htmlFor="login-role">{t('signInAs')}</FieldLabel><NativeSelect id="login-role" value={admin ? 'admin' : 'nonadmin'} onChange={(e) => setAdmin(e.target.value === 'admin')}><NativeSelectOption value="nonadmin">{t('employeeStaff')}</NativeSelectOption><NativeSelectOption value="admin">{t('admin')}</NativeSelectOption></NativeSelect></FieldRoot>}
       <Field label={t('username')} name="username" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} required minLength={3} maxLength={32} pattern="[a-zA-Z0-9_]+"/>
       <FieldDescription>{t('usernameHelp')}</FieldDescription>
-      <Password key={pin ? 'pin' : 'password'} pin={pin} label={t(pin ? 'pin' : 'password')} name="password" current={!setupRequired}/>
+      <Password key={setupRequired ? 'setup' : 'login'} login={!setupRequired} label={t(setupRequired ? 'password' : 'loginSecret')} name="password" current={!setupRequired}/>
       {setupRequired && <FieldDescription>{t('passwordHelp')}</FieldDescription>}
-      {pin && <Collapsible><CollapsibleTrigger render={<Button variant="ghost"/>}>{t('signInHelp')}</CollapsibleTrigger><CollapsibleContent><FieldDescription>{t('pinLoginHelp')}</FieldDescription></CollapsibleContent></Collapsible>}
-    </Form>{!setupRequired && <FieldDescription>{t(pin ? 'forgotPin' : 'forgot')}</FieldDescription>}</CardContent></Card><LocalAccess open={setupRequired}/></div>;
+    </Form>{!setupRequired && <FieldDescription>{t('forgotLoginSecret')}</FieldDescription>}</CardContent></Card><LocalAccess key={String(setupRequired)} open={setupRequired}/></div>;
 }
 function PasswordForm({ user, required = false, onSaved }: { user: PublicUser; required?: boolean; onSaved?: () => void }) {
   const { t } = useTranslation();

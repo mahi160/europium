@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { test, expect } from '../e2e/test';
 import { menuResponseSchema } from '@office-service/shared';
 
 const headers = { Origin: 'http://localhost:5195' };

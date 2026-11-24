@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect } from './test';
+import { type Browser, type Page } from '@playwright/test';
 import { z } from 'zod';
 import { menuItemResponseSchema, orderResponseSchema, publicUserSchema, setupSchema } from '@office-service/shared';
 
@@ -146,8 +147,8 @@ test('offline guards cover fulfillment, administration, profile and password com
     await expect(page.getByRole('button', { name: 'Sign out', exact: true, includeHidden: true })).toBeDisabled();
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await page.reload();
-    await page.getByRole('banner').getByRole('button', { name: 'Office administrator', exact: true }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    await page.getByRole('banner').locator('.account-name').click();
     await page.getByRole('button', { name: 'Change password', exact: true }).click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));

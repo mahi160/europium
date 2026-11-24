@@ -212,7 +212,7 @@ test('login silently binds an existing subscription without asking for permissio
   await page.goto('/');
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await page.getByLabel('Username', { exact: false }).fill(f.employee.username);
-  await page.getByLabel('PIN', { exact: false }).fill(personalPassword);
+  await page.getByLabel(/^PIN or password \*$/).fill(personalPassword);
   const binding = page.waitForResponse('**/api/push/subscription');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   expect((await binding).status()).toBe(200);
@@ -228,7 +228,7 @@ test('expired-session notification navigation preserves the internal order targe
   await page.goto(target);
   await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await page.getByLabel('Username', { exact: false }).fill(f.employee.username);
-  await page.getByLabel('PIN', { exact: false }).fill(personalPassword);
+  await page.getByLabel(/^PIN or password \*$/).fill(personalPassword);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page).toHaveURL('http://localhost:5184' + target);
   await expect(page.getByRole('region', { name: 'Order from notification', exact: true }).getByRole('article')).toContainText(f.item.name);

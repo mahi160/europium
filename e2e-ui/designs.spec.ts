@@ -1,10 +1,10 @@
-import { expect, test } from '@playwright/test';
+import { test, expect } from '../e2e/test';
 
 const headers = { Origin: 'http://localhost:5195' };
 const password = 'simple-browser-admin-password-123';
 
 for (const width of [1440, 768, 390]) {
-  test(`four designs keep menu controls and drafts at ${width}px`, async ({ page }) => {
+  test(`keyboard and mobile controls preserve drafts at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     const setup = await page.request.get('/api/setup');
     if ((await setup.json()).setupRequired) {
@@ -19,26 +19,31 @@ for (const width of [1440, 768, 390]) {
       name, category: 'tea', unit: 'কাপ', available: true, archived: false,
     } })).status()).toBe(201);
     await page.goto('/');
-    const increase = page.getByRole('button', { name: `Increase ${name}`, exact: true });
-    await increase.click();
+    const item = page.getByRole('button', { name, exact: true });
+    await item.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Send order (1)', exact: true })).toBeEnabled();
+    await page.getByRole('button', { name: 'Note (optional)', exact: true }).click();
     await page.getByLabel('Note (optional)', { exact: false }).fill('Keep this draft');
-    for (const [id, label] of [['counter', 'Counter'], ['ticket', 'Ticket'], ['night', 'Night shift'], ['compact', 'Quick list']]) {
-      const picker = page.getByRole('button', { name: label, exact: true });
-      await picker.click();
-      await expect(picker).toHaveAttribute('aria-pressed', 'true');
-      await expect(page.locator('html')).toHaveAttribute('data-design', id);
+    for (const [key, count] of [['Enter', 2], ['Space', 3]] as const) {
+      await item.focus();
+      await page.keyboard.press(key);
+      await expect(page.getByRole('button', { name: `Send order (${count})`, exact: true })).toBeEnabled();
       await expect(page.getByLabel('Note (optional)', { exact: false })).toHaveValue('Keep this draft');
-      await expect(increase.locator('..').locator('output')).toHaveText('1');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      const target = await increase.boundingBox();
+      const target = await item.boundingBox();
       expect(target?.width).toBeGreaterThanOrEqual(44);
       expect(target?.height).toBeGreaterThanOrEqual(44);
-      await page.screenshot({ path: `test-results/designs/${id}-${width}.png`, fullPage: true, animations: 'disabled' });
+      await page.screenshot({ path: `test-results/designs/${key}-${width}.png`, fullPage: true, animations: 'disabled' });
     }
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Quick list', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Send order (3)', exact: true })).toBeEnabled();
     await expect(page.getByLabel('Note (optional)', { exact: false })).toHaveValue('Keep this draft');
     await page.getByRole('button', { name: `Decrease ${name}`, exact: true }).click();
-    await expect(page.getByRole('button', { name: `Decrease ${name}`, exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: `Decrease ${name}`, exact: true }).click();
+    await page.getByRole('button', { name: `Decrease ${name}`, exact: true }).click();
+    await expect(page.getByRole('button', { name: `Decrease ${name}`, exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Send order (0)', exact: true })).toBeDisabled();
+    await page.screenshot({ path: `test-results/designs/cleared-${width}.png`, fullPage: true, animations: 'disabled' });
   });
 }

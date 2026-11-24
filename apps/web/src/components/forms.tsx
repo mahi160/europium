@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IconEye, IconEyeOff } from '@tabler/icons-react';
 import { ApiError } from '../api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -14,11 +15,14 @@ export function Field({ label, ...props }: ComponentProps<'input'> & { label: st
     onInvalid={(e) => e.currentTarget.setCustomValidity(t(props.inputMode === 'numeric' ? 'pinValidation' : 'validation'))}
     onInput={(e) => e.currentTarget.setCustomValidity('')} /></FieldRoot>;
 }
-export function Password({ label, name, current = false, pin = false, defaultValue = '' }: { label: string; name: string; current?: boolean; pin?: boolean; defaultValue?: string }) {
+export function Password({ label, name, current = false, pin = false, login = false, defaultValue = '' }: { label: string; name: string; current?: boolean; pin?: boolean; login?: boolean; defaultValue?: string }) {
   const [shown, setShown] = useState(false);
   const { t } = useTranslation();
-  return <div className="grid gap-2"><Field label={label} name={name} defaultValue={defaultValue} type={shown ? 'text' : 'password'} autoComplete={current ? 'current-password' : 'new-password'} required minLength={pin ? 4 : current ? 1 : 12} maxLength={pin ? 4 : 128} inputMode={pin ? 'numeric' : undefined} pattern={pin ? '[0-9]{4}' : undefined} autoCapitalize="none" autoCorrect="off" spellCheck={false}/>
-    <Button type="button" variant="ghost" className="justify-self-start" aria-pressed={shown} onClick={() => setShown(!shown)}>{t(pin ? shown ? 'hidePin' : 'showPin' : shown ? 'hidePassword' : 'showPassword')}</Button></div>;
+  const toggleLabel = t(login ? shown ? 'hideLoginSecret' : 'showLoginSecret'
+    : pin ? shown ? 'hidePin' : 'showPin' : shown ? 'hidePassword' : 'showPassword');
+  return <div className="flex items-end gap-2"><div className="min-w-0 flex-1"><Field label={label} name={name} defaultValue={defaultValue} type={shown ? 'text' : 'password'} autoComplete={current ? 'current-password' : 'new-password'} required minLength={pin ? 4 : current ? 1 : 12} maxLength={pin ? 4 : 128} inputMode={pin ? 'numeric' : undefined} pattern={pin ? '[0-9]{4}' : undefined} autoCapitalize="none" autoCorrect="off" spellCheck={false}/></div>
+    <Button type="button" variant="outline" size="icon" className="min-w-11" aria-label={toggleLabel} title={toggleLabel} onClick={() => setShown(!shown)}>{shown ? <IconEyeOff aria-hidden="true"/> : <IconEye aria-hidden="true"/>}</Button>
+  </div>;
 }
 export function ErrorNotice({ error, retry }: { error: Error | null; retry?: () => void }) {
   const { t } = useTranslation();

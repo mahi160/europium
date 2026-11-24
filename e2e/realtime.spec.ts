@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Browser, type Page } from '@playwright/test';
+import { test, expect } from './test';
+import { type Browser, type Page } from '@playwright/test';
 import { z } from 'zod';
 import { menuItemResponseSchema, ordersResponseSchema, publicUserSchema, setupSchema } from '@office-service/shared';
 

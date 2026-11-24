@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { test, expect } from '../e2e/test';
+import { type Page } from '@playwright/test';
 
 const headers = { Origin: 'http://localhost:5195' };
 const password = 'simple-browser-admin-password-123';
@@ -62,7 +63,7 @@ for (const width of [1440, 768, 390, 320]) {
       await p.goto('/');
       await p.getByLabel('ভাষা', { exact: true }).selectOption('en');
       await p.getByLabel('Username', { exact: false }).fill(`kiosk_${role}_${width}`);
-      await p.getByLabel('PIN', { exact: false }).fill('0000');
+      await p.getByLabel(/^PIN or password \*$/).fill('0000');
       await p.getByRole('button', { name: 'Sign in', exact: true }).click();
       await expect(p.getByRole('heading', { level: 1, name: 'Choose your own PIN', exact: true })).toBeVisible();
       await p.getByLabel('Current PIN', { exact: false }).fill('0000');

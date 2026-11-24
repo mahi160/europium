@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './test';
+import { type Page } from '@playwright/test';
 import { menuItemResponseSchema, orderResponseSchema, ordersResponseSchema, setupSchema } from '@office-service/shared';
 
 const headers = { Origin: 'http://localhost:5183' };
