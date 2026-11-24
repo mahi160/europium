@@ -11,6 +11,7 @@ import {
   apiErrorSchema, menuItemResponseSchema, menuResponseSchema, orderResponseSchema, ordersResponseSchema, publicUserSchema,
 } from '@office-service/shared';
 import { createApp } from './app';
+import type { AppConfig } from './config';
 import { menuItem, orderItem, orders, session } from './schema';
 
 const origin = 'http://localhost:5173';
@@ -40,10 +41,10 @@ async function login(backend: ReturnType<typeof createApp>, username: string, se
   expect(response.status).toBe(200);
   return response.headers.getSetCookie().map((value) => value.split(';')[0]).join('; ');
 }
-async function fixture() {
+async function fixture(stats: Pick<AppConfig, 'STATS_TOKEN' | 'OFFICE_TIMEZONE'> = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'office-ordering-'));
   resources.push(() => rmSync(directory, { recursive: true, force: true }));
-  const config = { APP_ORIGIN: origin, AUTH_SECRET: 'ordering-auth-secret-at-least-32-characters', SETUP_TOKEN: setupToken, DATABASE_PATH: join(directory, 'orders.sqlite') };
+  const config = { APP_ORIGIN: origin, AUTH_SECRET: 'ordering-auth-secret-at-least-32-characters', SETUP_TOKEN: setupToken, DATABASE_PATH: join(directory, 'orders.sqlite'), ...stats };
   const backend = createApp(config);
   resources.push(backend.close);
   expect((await request(backend, '/setup', 'POST', { ...profile, username: 'admin', password, setupToken })).status).toBe(201);
@@ -66,6 +67,55 @@ async function place(backend: ReturnType<typeof createApp>, cookie: string, payl
   const response = await request(backend, '/orders', 'POST', payload, cookie);
   expect(response.status).toBe(201);
   return orderResponseSchema.parse(await response.json()).order;
+}
+
+test('hub stats are disabled without a token and do not accept user sessions', async () => {
+  const disabled = await fixture();
+  await failure(await disabled.backend.app.request('/api/stats'), 404, 'NOT_FOUND');
+  const token = randomUUID() + randomUUID();
+  const { backend, admin } = await fixture({ STATS_TOKEN: token });
+  await failure(await request(backend, '/stats', 'GET', undefined, admin), 401, 'UNAUTHORIZED');
+  await failure(await backend.app.request('/api/stats', { headers: { Authorization: 'Bearer ' + token.slice(1) } }), 401, 'UNAUTHORIZED');
+  const response = await backend.app.request('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
+  expect(response.status).toBe(200);
+  expect(response.headers.get('Cache-Control')).toBe('no-store');
+  expect(await response.json()).toEqual({ generatedAt: expect.any(Number), today: { orders: 0, items: 0 }, week: { items: 0, topItems: [], busiestHour: null } });
+  await failure(await backend.app.request('/api/orders', { headers: { Authorization: 'Bearer ' + token } }), 401, 'UNAUTHORIZED');
+});
+
+for (const office of [
+  { timezone: undefined, now: '2025-02-04T11:00:00Z', week: '2025-02-02T18:00:00Z', today: '2025-02-03T18:00:00Z', peak: '2025-02-04T10:15:00Z', busiestHour: 16 },
+  { timezone: 'America/New_York', now: '2025-11-04T22:00:00Z', week: '2025-11-03T05:00:00Z', today: '2025-11-04T05:00:00Z', peak: '2025-11-04T21:15:00Z', busiestHour: 16 },
+]) {
+  test(`hub stats count only delivered orders at local boundaries in ${office.timezone ?? 'Asia/Dhaka'}`, async () => {
+    const token = randomUUID() + randomUUID();
+    const { backend, admin, item, payload } = await fixture({ STATS_TOKEN: token, OFFICE_TIMEZONE: office.timezone });
+    const second = menuItemResponseSchema.parse(await (await request(backend, '/menu', 'POST', { ...menuData, name: 'রং চা' }, admin)).json()).item;
+    const now = Date.parse(office.now);
+    const monday = Date.parse(office.week);
+    const midnight = Date.parse(office.today);
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+    async function seed(status: 'DELIVERED' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED', completedAt: number, quantity: number, extra = false) {
+      const order = await place(backend, admin, { ...payload(), items: [{ itemId: item.id, quantity }, ...(extra ? [{ itemId: second.id, quantity: 2 }] : [])] });
+      backend.db.update(orders).set({ status, completedAt, createdAt: monday - 86400000 }).where(eq(orders.id, order.id)).run();
+    }
+    await seed('DELIVERED', monday - 1, 90);
+    await seed('DELIVERED', monday, 3);
+    await seed('DELIVERED', midnight - 1, 1);
+    await seed('DELIVERED', midnight, 4);
+    await seed('DELIVERED', Date.parse(office.peak), 5, true);
+    await seed('DELIVERED', Date.parse(office.peak) + 60000, 6);
+    await seed('DELIVERED', Date.parse(office.peak) + 120000, 1);
+    await seed('DELIVERED', now + 1, 90);
+    for (const status of ['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELLED'] as const) await seed(status, now, 90);
+    const response = await backend.app.request('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      generatedAt: now, today: { orders: 4, items: 18 },
+      week: { items: 22, topItems: [{ name: item.name, quantity: 20 }, { name: second.name, quantity: 2 }], busiestHour: office.busiestHour },
+    });
+  });
 }
 
 test('menu boundary is strict, admin-only, and archive preserves referenced items', async () => {

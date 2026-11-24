@@ -83,6 +83,12 @@ Keep installer-managed entries as one unquoted `KEY=value` line per key. The ins
 
 The API derives `APP_ORIGIN=https://OFFICE_ADDRESS` and uses `/data/office.sqlite`; there is no separate public API URL. Caddy uses its internal CA even for a configured hostname. No public ACME certificate or purchased domain is required.
 
+### Optional hub statistics
+
+Leave `STATS_TOKEN` unset to disable `GET /api/stats`. To enable it, privately generate a separate 32-byte random token (hex is suitable), save it as `STATS_TOKEN` in the protected Office Service `.env`, and store the same value as a server-side secret on the hub. Optionally set `OFFICE_TIMEZONE` to the office's IANA time zone; the default is `Asia/Dhaka`. Apply these settings through the approved deployment process.
+
+The hub sends the token in the `Authorization: Bearer …` header over HTTPS. Configure its runtime to trust the verified Caddy root CA as described below; do not disable certificate verification. Do not place the token in the browser, a URL, or logs. The endpoint returns delivered totals only and does not grant access to ordering APIs.
+
 ## Establish trust before opening the setup wizard
 
 The first visit is not trusted merely because the URL starts with HTTPS. An untrusted web page cannot safely bootstrap its own identity. Follow these instructions offline on the operator-controlled host first. Do not bypass a browser certificate warning or enter credentials before establishing trust.

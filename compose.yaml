@@ -16,6 +16,8 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      STATS_TOKEN: ${STATS_TOKEN:-}
+      OFFICE_TIMEZONE: ${OFFICE_TIMEZONE:-Asia/Dhaka}
     volumes:
       - app-data:/data
 

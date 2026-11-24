@@ -54,7 +54,7 @@ cleanup() {
 begin() {
   [ -f compose.yaml ] && [ -f apps/api/src/operations-cli.ts ] || fail 'Run from the matching source root.'
   case "$PWD" in *,*) fail 'Deployment path cannot contain commas.' ;; esac
-  unset AUTH_SECRET SETUP_TOKEN OFFICE_ADDRESS APP_IMAGE WEB_IMAGE IMAGE_SOURCE VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT COMPOSE_FILE COMPOSE_PROJECT_NAME
+  unset AUTH_SECRET SETUP_TOKEN OFFICE_ADDRESS APP_IMAGE WEB_IMAGE IMAGE_SOURCE VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT STATS_TOKEN OFFICE_TIMEZONE COMPOSE_FILE COMPOSE_PROJECT_NAME
   command -v docker >/dev/null 2>&1 || fail 'Docker is required.'
   docker info >/dev/null 2>&1 || fail 'Docker daemon is unavailable; no operation attempted.'
   mkdir .office-install.lock 2>/dev/null || fail 'Installation/backup/upgrade/restore is locked. Confirm the previous process exited before removing the empty .office-install.lock directory.'

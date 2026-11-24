@@ -67,6 +67,12 @@ Sessions have a fixed 30-day maximum, multiple devices are supported, and cookie
 
 Setup and login retain SQLite-backed global fixed-minute limits of 10 and 30 requests respectively, including invalid requests. Login additionally shares a five-attempt, fixed-15-minute per-account bucket with current-PIN/password verification. Usernames are normalized before selecting that bucket; unknown usernames receive the same account limit. A successful login/change or an administrator credential reset clears that account bucket. Five failed attempts block even a correct credential until the next window or an administrator reset. All limits persist across backend instances and do not trust forwarded client IP headers. Authenticated sessions are still required for credential changes; a reset revokes all sessions, and a self-change retains only the current one.
 
+## Hub statistics
+
+`GET /api/stats` requires the hub's `Authorization: Bearer …` header. It returns 404 if `STATS_TOKEN` is unset and 401 if the token is missing or incorrect. User sessions do not grant access, and the stats token does not grant access to other routes.
+
+The response contains `generatedAt` (Unix milliseconds), `today: { orders, items }`, and `week: { items, topItems, busiestHour }`. Only Delivered orders count, based on completion time in `OFFICE_TIMEZONE` (default `Asia/Dhaka`). The week starts Monday at local midnight. Item counts sum quantities; the top five names use order-time item snapshots, sorted by quantity then name. Busiest hour counts delivered orders by local hour (0–23), chooses the earlier hour on ties, and is `null` with no deliveries. Individual orders and requester data are not returned.
+
 ## Realtime updates
 
 `GET /api/events` is a same-origin, cookie-authenticated SSE stream for signed-in users who have changed their temporary password. A supplied Origin must match `APP_ORIGIN`; Fetch Metadata indicating a different origin (including same-site subdomains) is rejected. Commands remain ordinary HTTP requests. A single backend keeps only live subscriptions in memory; SQLite remains authoritative. There is no broker, replay log, or client-side order store.

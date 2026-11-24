@@ -13,6 +13,7 @@ import { parseConfig, type AppConfig } from './config';
 import { openDatabase } from './database';
 import { account, menuItem, rateLimit, session, setup, user } from './schema';
 import { registerOrders } from './orders';
+import { registerStats } from './stats';
 import { createEvents } from './events';
 import { createPush, registerPush, type PushTransport } from './push';
 
@@ -384,6 +385,7 @@ export function createApp(options: AppConfig, realtime: { heartbeatMs?: number; 
   });
 
   registerOrders(app, { db, sqlite }, { actorFor, freshActor }, events.publish);
+  registerStats(app, sqlite, config);
   const push = createPush({ db, sqlite }, config, realtime);
   registerPush(app, { db, sqlite }, { actorFor, freshActor }, push);
   let closed = false;
