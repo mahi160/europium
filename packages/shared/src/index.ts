@@ -42,7 +42,8 @@ export const changePasswordSchema = z.strictObject({
 }).refine((value) => value.currentPassword !== value.newPassword);
 export const resetPasswordSchema = z.strictObject({ newPassword: credentialSchema });
 export const userIdSchema = z.string().min(1).max(128);
-export const publicUserSchema = profileSchema.extend({
+export const publicUserSchema = z.object({
+  ...profileSchema.shape,
   id: userIdSchema,
   username: usernameSchema,
   role: roleSchema,
@@ -69,7 +70,7 @@ export const menuInputSchema = z.strictObject({
   available: z.boolean(),
   archived: z.boolean(),
 });
-export const menuItemSchema = menuInputSchema.extend({ id: z.uuid() });
+export const menuItemSchema = z.object({ ...menuInputSchema.shape, id: z.uuid() });
 export const menuResponseSchema = z.object({ items: z.array(menuItemSchema) });
 export const menuItemResponseSchema = z.object({ item: menuItemSchema });
 export const orderStatuses = ['PENDING', 'ACCEPTED', 'DELIVERED', 'REJECTED', 'CANCELLED'] as const;
