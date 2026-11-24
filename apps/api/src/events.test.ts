@@ -141,7 +141,7 @@ test('authorized streams invalidate only relevant clients after committed create
   expect(second.count('change')).toBe(2);
   for (const stream of [owner, stranger, staff, second, admin]) {
     for (const frame of stream.frames) {
-      expect(frame.split('\n').filter((line) => line.startsWith('data:'))).toEqual(['data: {}']);
+      expect(frame.split('\n').filter((line) => line.startsWith('data:'))).toEqual([frame.includes('event: change') ? 'data: {"kind":"order"}' : 'data: {}']);
       expect(frame).not.toContain(order.id);
       expect(frame).not.toContain('private');
     }

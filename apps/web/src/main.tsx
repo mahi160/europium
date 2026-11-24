@@ -10,7 +10,7 @@ import './index.css';
 import { Application } from './pages/application';
 import { PwaUpdate } from './components/pwa-update';
 
-export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15000, refetchOnWindowFocus: true }, mutations: { retry: false } } });
+export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15000, refetchOnWindowFocus: false, refetchOnReconnect: false }, mutations: { retry: false } } });
 const rootRoute = createRootRoute({ component: () => <>
   {import.meta.env.PROD && 'serviceWorker' in navigator && <PwaUpdate/>}
   <Outlet/>

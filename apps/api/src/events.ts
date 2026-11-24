@@ -42,11 +42,11 @@ export function createEvents(app: Hono<AppEnv>, { db }: ReturnType<typeof openDa
           return value;
         } catch { stop(); return null; }
       };
-      const send = async (event: 'ready' | 'heartbeat' | 'change') => {
+      const send = async (event: 'ready' | 'heartbeat' | 'change', kind?: Change['kind']) => {
         if (ended || !current()) return;
         writing = true;
         try {
-          await stream.writeSSE({ event, data: '{}', ...(event === 'ready' ? { retry: 3000 } : {}) });
+          await stream.writeSSE({ event, data: kind ? JSON.stringify({ kind }) : '{}', ...(event === 'ready' ? { retry: 3000 } : {}) });
           while (!ended && dirty) {
             dirty = false;
             if (!current()) break;
@@ -69,7 +69,7 @@ export function createEvents(app: Hono<AppEnv>, { db }: ReturnType<typeof openDa
             )).get() !== undefined));
         if (!relevant) return;
         if (writing) dirty = true;
-        else void send('change');
+        else void send('change', change.kind);
       };
       const timer = setInterval(() => {
         if (!current()) return;

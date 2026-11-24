@@ -21,15 +21,21 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
     let running = false;
     let requested = false;
     let fullRefresh = false;
+    const affected = new Set<string>();
+    let checkSession = false;
+    let resumeGrace: ReturnType<typeof setTimeout> | undefined;
+    let wasLive = false;
     let connected = false;
     let authoritative = false;
     const scoped = (query: { queryKey: readonly unknown[] }) => serverKeys.includes(String(query.queryKey[0])) && query.queryKey[1] === user.id;
     const mark = (next: Status) => {
       if (!disposed) setStatus(!navigator.onLine ? 'offline' : document.hidden ? 'suspended' : next);
     };
-    const reconcile = async (full: boolean) => {
+    const reconcile = async (full: boolean, session = false, keys: string[] = []) => {
       requested = true;
       fullRefresh ||= full;
+      checkSession ||= session;
+      for (const key of keys) affected.add(key);
       if (running) return;
       running = true;
       try {
@@ -37,31 +43,47 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
           const refresh = fullRefresh || !authoritative;
           requested = false;
           fullRefresh = false;
-          if (refresh) { authoritative = false; if (connected) mark('refreshing'); }
-          const result = await api('/auth/get-session', sessionResponse);
-          if (disposed) break;
-          const changed = !result.user || result.user.id !== user.id || result.user.role !== user.role
-            || result.user.language !== user.language || result.user.mustChangePassword;
-          if (changed) {
-            source?.close();
-            source = null;
-            clearTimeout(watchdog);
-            connected = false;
-            await client.cancelQueries({ predicate: (query) => query.queryKey[0] === 'session' || scoped(query) });
-            client.removeQueries({ predicate: scoped });
-          }
-          if (disposed) break;
-          client.setQueryData(['session'], result);
-          if (changed) break;
-          if (refresh) {
-            await client.cancelQueries({ predicate: scoped });
+          const verifySession = checkSession;
+          checkSession = false;
+          const keys = new Set(affected);
+          affected.clear();
+          if (refresh && !authoritative && connected && !resumeGrace) mark('refreshing');
+          if (verifySession) {
+            const result = await api('/auth/get-session', sessionResponse);
             if (disposed) break;
-            await client.invalidateQueries({ predicate: scoped }, { throwOnError: true });
-            authoritative = true;
+            const changed = !result.user || result.user.id !== user.id || result.user.role !== user.role
+              || result.user.language !== user.language || result.user.mustChangePassword;
+            if (changed) {
+              source?.close();
+              source = null;
+              clearTimeout(watchdog);
+              connected = false;
+              await client.cancelQueries({ predicate: (query) => query.queryKey[0] === 'session' || scoped(query) });
+              client.removeQueries({ predicate: scoped });
+            }
+            if (disposed) break;
+            client.setQueryData(['session'], result);
+            if (changed) break;
           }
-          if (connected && authoritative && !requested && navigator.onLine) mark('current');
+          if (refresh || keys.size) {
+            const predicate = (query: Parameters<typeof scoped>[0]) => scoped(query) && (refresh || keys.has(String(query.queryKey[0])));
+            await client.cancelQueries({ predicate });
+            if (disposed) break;
+            await client.invalidateQueries({ predicate }, { throwOnError: true });
+            if (refresh) authoritative = true;
+          }
+          if (connected && authoritative && !requested && navigator.onLine) {
+            clearTimeout(resumeGrace);
+            resumeGrace = undefined;
+            mark('current');
+          }
         }
-      } catch { authoritative = false; mark(navigator.onLine ? 'disconnected' : 'offline'); }
+      } catch {
+        authoritative = false;
+        clearTimeout(resumeGrace);
+        resumeGrace = undefined;
+        mark(navigator.onLine ? 'disconnected' : 'offline');
+      }
       finally { running = false; }
     };
     const arm = () => {
@@ -72,11 +94,10 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
         source?.close();
         source = null;
         mark(navigator.onLine ? 'disconnected' : 'offline');
-        void reconcile(false);
-        if (navigator.onLine) connect();
+        if (navigator.onLine && !document.hidden) connect();
       }, 45000);
     };
-    const connect = () => {
+    const connect = (quickResume = false) => {
       source?.close();
       clearTimeout(watchdog);
       connected = false;
@@ -84,24 +105,42 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       if (disposed) return;
       if (!navigator.onLine) { mark('offline'); return; }
       if (document.hidden) { mark('suspended'); return; }
-      mark('connecting');
+      if (quickResume) {
+        mark('current');
+        resumeGrace = setTimeout(() => {
+          resumeGrace = undefined;
+          mark(connected ? 'refreshing' : 'connecting');
+        }, 1000);
+      } else mark('connecting');
       const connection = new EventSource('/api/events');
       source = connection;
       const active = () => !disposed && source === connection;
-      connection.addEventListener('ready', () => { if (active()) { connected = true; arm(); void reconcile(true); } });
-      connection.addEventListener('change', () => { if (active()) { arm(); void reconcile(true); } });
-      connection.addEventListener('heartbeat', () => { if (active()) { arm(); void reconcile(false); } });
+      connection.addEventListener('ready', () => { if (active()) { connected = true; arm(); void reconcile(true, true); } });
+      connection.addEventListener('change', (event) => {
+        if (!active()) return;
+        arm();
+        let data: unknown;
+        try { data = JSON.parse(event.data); } catch { data = null; }
+        const kind = data && typeof data === 'object' && 'kind' in data ? data.kind : null;
+        if (kind === 'order') void reconcile(false, false, ['orders', 'work-orders']);
+        else if (kind === 'menu') void reconcile(false, false, ['menu']);
+        else void reconcile(true, true);
+      });
+      connection.addEventListener('heartbeat', () => { if (active()) { arm(); void reconcile(false, true); } });
       connection.onerror = () => {
         if (!active()) return;
         connected = false;
         authoritative = false;
+        clearTimeout(resumeGrace);
+        resumeGrace = undefined;
         mark(navigator.onLine ? 'disconnected' : 'offline');
-        void client.invalidateQueries({ queryKey: ['session'] });
-        void reconcile(false);
+        void reconcile(false, true);
       };
       arm();
     };
     const offline = () => {
+      clearTimeout(resumeGrace);
+      resumeGrace = undefined;
       connected = false;
       source?.close();
       source = null;
@@ -109,6 +148,9 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       mark('offline');
     };
     const suspend = () => {
+      wasLive = connected && authoritative;
+      clearTimeout(resumeGrace);
+      resumeGrace = undefined;
       connected = false;
       authoritative = false;
       source?.close();
@@ -117,9 +159,13 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
       mark('suspended');
     };
     const resume = () => {
-      if (document.hidden) { suspend(); return; }
-      connect();
-      void reconcile(true);
+      if (disposed || document.hidden || !navigator.onLine) return;
+      if (source && source.readyState !== EventSource.CLOSED) {
+        if (connected && authoritative) mark('current');
+        return;
+      }
+      connect(wasLive);
+      wasLive = false;
     };
     window.addEventListener('online', resume);
     window.addEventListener('offline', offline);
@@ -130,6 +176,7 @@ export function Realtime({ user, children }: { user: PublicUser; children: React
     connect();
     return () => {
       disposed = true;
+      clearTimeout(resumeGrace);
       source?.close();
       clearTimeout(watchdog);
       window.removeEventListener('online', resume);
@@ -147,7 +194,7 @@ export function RealtimeStatus() {
   const { t } = useTranslation();
   const { status, retry } = useContext(RealtimeContext);
   return <div className="flex flex-wrap items-center gap-2" role="status" data-realtime={status}>
-    <Badge variant="outline">{t('realtime.' + status)}</Badge>{status !== 'current' && <Button variant="ghost" onClick={retry}>{t('retry')}</Button>}
+    <Badge variant="outline">{t('realtime.' + status)}</Badge>{(status === 'disconnected' || status === 'offline') && <Button variant="ghost" onClick={retry}>{t('retry')}</Button>}
   </div>;
 }
 

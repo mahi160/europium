@@ -65,11 +65,6 @@ export function Application() {
     } catch (cause) { setLogoutError(cause instanceof Error ? cause : new Error()); }
   }
   useEffect(() => { if (user) applyLanguage(user.language); }, [user?.id, user?.language]);
-  useEffect(() => {
-    const refresh = () => { if (!document.hidden) void client.invalidateQueries({ queryKey: ['session'] }); };
-    document.addEventListener('visibilitychange', refresh);
-    return () => document.removeEventListener('visibilitychange', refresh);
-  }, [client]);
   if (setup.isPending || session.isPending) return <main className="mx-auto max-w-md p-6"><p role="status">{t('loading')}</p></main>;
   if ((setup.error && !setup.data) || (session.error && !session.data)) return <main className="mx-auto max-w-md p-6"><ErrorNotice error={setup.error ?? session.error} retry={() => { void setup.refetch(); void session.refetch(); }} /></main>;
   if (!user) return <main className="mx-auto grid w-full max-w-md gap-8 px-4 py-8 sm:py-16"><header className="flex items-center justify-between gap-4"><span className="flex items-center gap-2"><IconCoffee aria-hidden="true"/>{t('app')}</span><LanguagePicker /></header><Auth setupRequired={setup.data?.setupRequired ?? false}/></main>;

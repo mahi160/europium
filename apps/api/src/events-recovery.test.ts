@@ -95,7 +95,7 @@ test('an audit insert rollback publishes nothing and the same order key can then
   const response = await f.request('/orders', 'POST', body, f.cookie);
   expect(response.status).toBe(201);
   const order = orderResponseSchema.parse(await response.json()).order;
-  expect(await connection.readUntil('change')).toContain('data: {}');
+  expect(await connection.readUntil('change')).toContain('data: {"kind":"order"}');
   expect(ordersResponseSchema.parse(await (await f.request('/orders', 'GET', undefined, f.cookie)).json()).orders.map((value) => value.id)).toEqual([order.id]);
 });
 

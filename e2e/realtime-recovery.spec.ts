@@ -5,8 +5,8 @@ import { menuItemResponseSchema, orderResponseSchema, publicUserSchema, setupSch
 
 const headers = { Origin: 'http://localhost:5183' };
 const adminPassword = 'browser-admin-password-123';
-const temporaryPassword = 'recovery-temporary-password-123';
-const personalPassword = 'recovery-personal-password-456';
+const temporaryPassword = '0007';
+const personalPassword = '0042';
 
 async function fixture(page: Page, browser: Browser) {
   const setup = z.object({ setupRequired: z.boolean() }).parse(await (await page.request.get('/api/setup')).json());
@@ -46,6 +46,37 @@ async function fixture(page: Page, browser: Browser) {
   }
 }
 
+test('healthy focus needs no requests and a burst of resume events reconciles once', async ({ page, browser }) => {
+  const f = await fixture(page, browser);
+  try {
+    const paths: string[] = [];
+    f.employee.on('request', (request) => {
+      const path = new URL(request.url()).pathname;
+      if (path.startsWith('/api/')) paths.push(path);
+    });
+    await f.employee.evaluate(async () => {
+      window.dispatchEvent(new Event('focus'));
+      await new Promise(requestAnimationFrame);
+    });
+    await expect(f.employee.locator('[data-realtime="current"]')).toBeVisible();
+    expect(paths).toEqual([]);
+    await f.employee.evaluate(() => {
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('pageshow'));
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect(f.employee.locator('[data-realtime="current"]')).toBeVisible();
+    await expect.poll(() => [...paths].sort()).toEqual(['/api/auth/get-session', '/api/events', '/api/menu', '/api/orders']);
+    paths.length = 0;
+    expect((await f.employee.request.post('/api/orders', { headers, data: {
+      idempotencyKey: randomUUID(), items: [{ itemId: f.item.id, quantity: 1 }], note: 'Selective refresh',
+    } })).status()).toBe(201);
+    await expect(f.employee.getByRole('article').filter({ hasText: 'Selective refresh' })).toBeVisible();
+    expect(paths).toEqual(['/api/orders']);
+  } finally { await f.close(); }
+});
+
 test('a change racing the ready refetch is reconciled again; page return replaces suspended live status', async ({ page, browser }) => {
   const f = await fixture(page, browser);
   let release = () => {};
@@ -56,7 +87,7 @@ test('a change racing the ready refetch is reconciled again; page return replace
     expect(response.status()).toBe(201);
     const order = orderResponseSchema.parse(await response.json()).order;
     const employeeCard = f.employee.getByRole('article').filter({ hasText: 'Race recovery' });
-    await expect(employeeCard.getByRole('heading', { name: 'Pending', exact: true })).toBeVisible();
+    await expect(employeeCard.getByText('Pending', { exact: true })).toBeVisible();
     const held = new Promise<void>((resolve) => { release = resolve; });
     let captured = () => {};
     const snapshot = new Promise<void>((resolve) => { captured = resolve; });
@@ -76,7 +107,7 @@ test('a change racing the ready refetch is reconciled again; page return replace
     expect((await f.staff.request.post('/api/orders/' + order.id + '/accept', { headers, data: {} })).ok()).toBe(true);
     await expect(f.employee.locator('[data-realtime="current"]')).toHaveCount(0);
     release();
-    await expect(employeeCard.getByRole('heading', { name: 'Accepted', exact: true })).toBeVisible();
+    await expect(employeeCard.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(f.employee.locator('[data-realtime="current"]')).toBeVisible();
     await f.employee.unroute('**/api/orders');
 
@@ -84,7 +115,7 @@ test('a change racing the ready refetch is reconciled again; page return replace
     await expect(f.employee.locator('[data-realtime="suspended"]')).toBeVisible();
     expect((await f.staff.request.post('/api/orders/' + order.id + '/deliver', { headers, data: {} })).ok()).toBe(true);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('pageshow')));
-    await expect(employeeCard.getByRole('heading', { name: 'Delivered', exact: true })).toBeVisible();
+    await expect(employeeCard.getByText('Delivered', { exact: true })).toBeVisible();
     await expect(f.employee.locator('[data-realtime="current"]')).toBeVisible();
   } finally { release(); await f.close(); }
 });
@@ -103,24 +134,24 @@ test('offline guards cover fulfillment, administration, profile and password com
     await expect(card.getByRole('button', { name: 'Accept order', exact: true })).toBeDisabled();
     await f.contexts[1].setOffline(false);
     await f.staff.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect(card.getByRole('heading', { name: 'Pending', exact: true })).toBeVisible();
+    await expect(card.getByText('Pending', { exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Accept order', exact: true })).toBeEnabled();
 
-    await page.goto('/users');
+    await page.goto('/admin');
     await page.getByRole('button', { name: 'Add person', exact: true }).click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
     await expect(page.getByRole('button', { name: 'Add person', exact: true }).last()).toBeDisabled();
     await expect(page.getByLabel('Language', { exact: true }).first()).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Sign out', exact: true, includeHidden: true })).toBeDisabled();
     await page.context().setOffline(false);
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
-    await page.goto('/profile');
-    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByRole('banner').getByRole('button', { name: 'Office administrator', exact: true }).click();
+    await page.getByRole('button', { name: 'Change password', exact: true }).click();
     await page.context().setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
-    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Change password', exact: true })).toBeDisabled();
+    await expect(page.getByRole('dialog', { name: 'Change password' }).getByRole('button', { name: 'Change password', exact: true })).toBeDisabled();
   } finally {
     await page.context().setOffline(false);
     await f.close();

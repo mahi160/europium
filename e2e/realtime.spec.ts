@@ -5,8 +5,8 @@ import { menuItemResponseSchema, ordersResponseSchema, publicUserSchema, setupSc
 
 const headers = { Origin: 'http://localhost:5183' };
 const adminPassword = 'browser-admin-password-123';
-const temporaryPassword = 'realtime-temporary-password-123';
-const personalPassword = 'realtime-personal-password-456';
+const temporaryPassword = '0007';
+const personalPassword = '0042';
 const personResponse = z.object({ user: publicUserSchema });
 
 async function signIn(page: Page, username: string, password: string) {
@@ -58,34 +58,36 @@ async function office(page: Page, browser: Browser) {
 test('two contexts update automatically, reconcile missed events offline and on foreground, and stop revoked sessions', async ({ page, browser }) => {
   const f = await office(page, browser);
   try {
-    await f.employee.getByRole('button', { name: 'Increase ' + f.name, exact: true }).click();
+    await f.employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.name, exact: true }).click();
+    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
     await f.employee.getByRole('button', { name: 'Place order', exact: true }).click();
     const employeeCard = f.employee.getByRole('article').filter({ hasText: f.name });
     const staffCard = f.staff.getByRole('article').filter({ hasText: f.name });
     await expect(staffCard).toBeVisible({ timeout: 5000 });
     await staffCard.getByRole('button', { name: 'Accept order', exact: true }).click();
-    await expect(employeeCard.getByRole('heading', { name: 'Accepted', exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(employeeCard.getByText('Accepted', { exact: true })).toBeVisible({ timeout: 5000 });
     await f.contexts[0].setOffline(true);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('offline')));
     await expect(f.employee.locator('[data-realtime="offline"]')).toContainText('may be out of date');
+    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
     await expect(f.employee.getByRole('button', { name: 'Place order', exact: true })).toBeDisabled();
-    await f.staff.getByRole('button', { name: 'My active work', exact: true }).click();
     await staffCard.getByRole('button', { name: 'Mark delivered', exact: true }).click();
     await f.contexts[0].setOffline(false);
     await f.employee.evaluate(() => window.dispatchEvent(new Event('online')));
-    await expect(employeeCard.getByRole('heading', { name: 'Delivered', exact: true })).toBeVisible({ timeout: 5000 });
+    await expect(employeeCard.getByText('Delivered', { exact: true })).toBeVisible({ timeout: 5000 });
     await expect(f.employee.locator('[data-realtime="current"]')).toBeVisible();
 
     await f.staff.route('**/api/events', (route) => route.abort());
-    await f.staff.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await f.staff.evaluate(() => {
+      window.dispatchEvent(new Event('pagehide'));
+      window.dispatchEvent(new Event('pageshow'));
+    });
     await expect(f.staff.locator('[data-realtime="disconnected"]')).toBeVisible();
     const payload = { idempotencyKey: randomUUID(), items: [{ itemId: f.item.id, quantity: 1 }], note: 'missed foreground' };
     expect((await f.employee.request.post('/api/orders', { headers, data: payload })).status()).toBe(201);
-    await f.staff.getByRole('button', { name: 'Pending', exact: true }).click();
-    await f.staff.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-    await expect(f.staff.getByRole('article').filter({ hasText: 'missed foreground' })).toBeVisible({ timeout: 5000 });
     await f.staff.unroute('**/api/events');
     await f.staff.locator('[data-realtime]').getByRole('button', { name: 'Try again', exact: true }).click();
+    await expect(f.staff.getByRole('article').filter({ hasText: 'missed foreground' })).toBeVisible({ timeout: 5000 });
     await expect(f.staff.locator('[data-realtime="current"]')).toBeVisible();
 
     expect((await page.request.post('/api/users/' + f.staffUser.id + '/reset-password', { headers, data: { newPassword: temporaryPassword } })).ok()).toBe(true);
@@ -107,7 +109,8 @@ test('uncertain responses retain an isolated frozen draft and idempotency key; o
         await route.abort();
       } else await route.continue();
     });
-    await f.employee.getByRole('button', { name: 'Increase ' + f.name, exact: true }).click();
+    await f.employee.getByRole('group', { name: 'Choose a refreshment' }).getByRole('button', { name: f.name, exact: true }).click();
+    await f.employee.getByRole('button', { name: 'Add 1 to your order', exact: true }).click();
     await f.employee.getByLabel('Note (optional)', { exact: false }).fill('Keep this draft');
     await f.employee.getByRole('button', { name: 'Place order', exact: true }).click();
     await expect(f.employee.getByText('This order is locked until its outcome is known.', { exact: false })).toBeVisible();
